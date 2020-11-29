@@ -5,8 +5,12 @@ By default there is no option to exclude streaming providers from the automatica
 3. Lookup the extracted `tmdbid` value from Radarr at TMDB itself and check if the movie is available on one of the chosen providers in your country.
 4. All movie ids (database ids from Radarr) that are available on one of the chosen streaming services will be deleted and excluded form auto import in the future.
 
+## Dependencies
+- Python3
+- Radarr v3 (latest develop)
+- TMDB account (Free)
+
 ## Installation
-Ensure Python3+ is installed.
 ```bash
 git clone https://github.com/haijeploeg/exclude_streaming_radarr.git
 pip install -r requirements.txt
