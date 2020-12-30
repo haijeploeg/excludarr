@@ -28,7 +28,7 @@ exclude_providers = [x.lower() for x in RADARR_EXCLUDE_PROVIDERS]
 radarr_delete_ids = []
 
 # Get all movies from radarr and check if tmdbid is in netflix list
-for movie in radarr.movie.get():
+for movie in radarr.movie.get_all_movies():
     try:
         # Try to lookup the movie on TMDB using the tmdbid retrieved from Radarr
         providers = tmdb.movie.get_watch_providers(movie['tmdbId'])
@@ -52,6 +52,6 @@ for movie in radarr.movie.get():
 
 # Delete the movies in a single API call
 if radarr_delete_ids:
-    radarr.movie.delete(radarr_delete_ids, deleteFiles=True, addImportExclusion=True)
+    radarr.movie.delete_movies(radarr_delete_ids, delete_files=True, add_import_exclusion=True)
 
 print('Deleted {} movie(s)'.format(len(radarr_delete_ids)))

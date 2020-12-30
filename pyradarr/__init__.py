@@ -4,17 +4,16 @@ import requests
 
 from json import JSONDecodeError
 
-from pyradarr.exceptions import RadarrException, RadarrInvalidIdSupplied, RadarrInvalidApiKey
+from pyradarr.exceptions import RadarrException, RadarrInvalidIdSupplied, RadarrInvalidApiKey, RadarrMovieNotFound, RadarrValidationException
 from pyradarr.v3.movie import Movie
 
 class Radarr(object):
 
-    def __init__(self, base_url, api_key, api_version='3', ssl_verify=True):
+    def __init__(self, base_url, api_key, ssl_verify=True):
         # Setup base variables
-        self._api_version = str(api_version)
         self._base_url = base_url.rstrip('/')
         self.api_key = api_key
-        self.api_url = '{}/api/v{}'.format(self._base_url, self._api_version)
+        self.api_url = '{}/api/v3'.format(self._base_url)
 
         # Setup SSL verification
         self.ssl_verify = ssl_verify
@@ -32,14 +31,16 @@ class Radarr(object):
     def _build_url(self, path):
         return '{}{}'.format(self.api_url, path)
 
-    def _filter_api_error(self, data):            
+    def _filter_api_error(self, data):          
         if data.status_code == 400:
-            raise InvalidIdSupplied("Invalid ID supplied")
+            raise RadarrInvalidIdSupplied("Invalid ID supplied! The error message is: {}".format(data.text))
         elif data.status_code == 401:
             raise RadarrInvalidApiKey("Invalid API key")
         elif data.status_code == 404:
-            raise RadarrInvalidApiKey("Movie not found")
-
+            raise RadarrMovieNotFound("Movie not found")
+        elif data.status_code == 405:
+            raise RadarrValidationException("Validation exception")
+       
         try:
             result_json = data.json()
         except JSONDecodeError:
@@ -58,6 +59,12 @@ class Radarr(object):
 
     def http_get(self, path, params=None):
         return self.http_request('get', path, params=params)
+
+    def http_post(self, path, json=None):
+        return self.http_request('post', path, json=json)
+
+    def http_put(self, path, params=None, json=None):
+        return self.http_request('put', path, params=params, json=json)
 
     def http_delete(self, path, json=None, params=None):
         return self.http_request('delete', path, json=json, params=params)

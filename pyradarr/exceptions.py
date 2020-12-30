@@ -25,3 +25,7 @@ class RadarrInvalidApiKey(Exception):
 
 class RadarrMovieNotFound(Exception):
     pass
+
+
+class RadarrValidationException(Exception):
+    pass
