@@ -4,7 +4,7 @@ import requests
 
 from json import JSONDecodeError
 
-from pyradarr.exceptions import RadarrException, RadarrInvalidIdSupplied, RadarrInvalidApiKey, RadarrMovieNotFound, RadarrValidationException
+from pyradarr.exceptions import RadarrInvalidIdSupplied, RadarrInvalidApiKey, RadarrMovieNotFound, RadarrValidationException
 from pyradarr.v3.movie import Movie
 
 class Radarr(object):
