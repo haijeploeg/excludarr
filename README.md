@@ -19,15 +19,17 @@ pip install -r requirements.txt
 ## Configuration
 Open `exclude_streaming_from_radarr.py` and adjust the following values as needed (bear in mind that some settings can be set using an environment variable. e.g. `export TMDB_API_KEY='supersecret'`):
 
-Setting | Value | Set via environment | Description
----|---|---|---
-TMDB_API_KEY | str | yes | Your TMDB API key.
-LOCALE | str | no | A 2 letter country code. Example: `'NL'`.
-RADARR_URL | str | yes | The Radarr base url: `'http://localhost:7878'`.
-RADARR_API_KEY | str | yes| Your Radarr API key.
-RADARR_VERIFY_SSL | bool | yes | Whether or not to verify the SSL certificate.
-RADARR_REMOVE_IF_NOT_FOUND | bool | no | If a movie from Radarr is not found on tmdbid (if it is deleted on tmdbid for example) delete this movie too
-RADARR_EXCLUDE_PROVIDERS | list | no | A list containing all the streaming services you want to exclude from importing in to radarr. NOT case sensitive. Example `['netflix', 'amazon prime video', 'videoland']`. More info: https://developers.themoviedb.org/3/movies/get-movie-watch-providers
+Setting | Value | Set via environment | Default value | Description
+---|---|---|---|---
+TMDB_API_KEY | str | yes | `supersecret` | Your TMDB API key.
+TMDB_LOCALE | str | yes | `NL` | A 2 letter country code. Defaults to: `'NL'`.
+RADARR_URL | str | yes | `http://localhost:7878` | The Radarr base url.
+RADARR_API_KEY | str | yes | `supersecret` | Your Radarr API key.
+RADARR_VERIFY_SSL | bool | yes | `True` | Whether or not to verify the SSL certificate.
+RADARR_REMOVE_IF_NOT_FOUND | bool | yes | `True` | If a movie from Radarr is not found on tmdbid (if it is deleted on tmdbid for example) delete this movie too.
+RADARR_DELETE_FILES | bool | yes | `True` | Wether tot delete any existing files.
+RADARR_ADD_IMPORT_EXCLUSION | bool | yes | `True` | Wether to exclude the movie from any future import.
+RADARR_EXCLUDE_PROVIDERS | string | yes | `netflix` | A comma seperated string containing all the streaming services you want to exclude from importing in to radarr. NOT case sensitive. Example `export RADARR_EXCLUDE_PROVIDERS="netflix, amazon prime video, videoland". More info: https://developers.themoviedb.org/3/movies/get-movie-watch-providers
 
 ## How to use
 Make sure all the variables are exported and set as needed.
@@ -39,7 +41,7 @@ Deleted 1 movie(s)
 ```
 
 # Development
-This library is still being developed. pytmdb and pyradarr will later be seperate modules. 
+This library is still being developed. pytmdb and pyradarr will later be seperate modules.
 
 ## Contributing
 Feel free to help and contribute to this project :)
