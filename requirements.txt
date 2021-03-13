@@ -1,1 +1,1 @@
-requests>=2.25.0
+cement==3.0.4
