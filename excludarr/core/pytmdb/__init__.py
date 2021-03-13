@@ -5,16 +5,16 @@ import requests
 
 from json import JSONDecodeError
 
-from pytmdb.exceptions import TMDBException
-from pytmdb.v3.movies import Movie
+from .exceptions import TMDBException
+from .v3.movies import Movie
+
 
 class TMDB(object):
-
-    def __init__(self, api_key, api_version='3', ssl_verify=True):
+    def __init__(self, api_key, api_version="3", ssl_verify=True):
         # Setup base variables
         self._api_version = str(api_version)
-        self._base_url = 'https://api.themoviedb.org'
-        self.api_url = '{}/{}'.format(self._base_url, self._api_version)
+        self._base_url = "https://api.themoviedb.org"
+        self.api_url = "{}/{}".format(self._base_url, self._api_version)
         self.api_key = api_key
 
         # Setup SSL verification
@@ -22,7 +22,7 @@ class TMDB(object):
 
         # Setup session
         self.session = requests.Session()
-        self.session.params = {'api_key': self.api_key}
+        self.session.params = {"api_key": self.api_key}
 
         # Register managers
         self.movie = Movie(self)
@@ -31,12 +31,12 @@ class TMDB(object):
         self.session.close()
 
     def _build_url(self, path):
-        return '{}{}'.format(self.api_url, path)
+        return "{}{}".format(self.api_url, path)
 
     def _filter_api_error(self, data):
-        if not data.get('success', True):
-            status_code = data.get('status_code', '')
-            status_message = data.get('status_message', '')
+        if not data.get("success", True):
+            status_code = data.get("status_code", "")
+            status_message = data.get("status_message", "")
             raise TMDBException(status_code, status_message)
 
         return data
@@ -56,4 +56,4 @@ class TMDB(object):
         return self._filter_api_error(result_json)
 
     def http_get(self, path, params=None):
-        return self.http_request('get', path, params=params)
+        return self.http_request("get", path, params=params)

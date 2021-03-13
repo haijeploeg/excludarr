@@ -1,43 +1,48 @@
-# Exclude Streaming Services from Radarr
+# Excludarr
 By default there is no option to exclude streaming providers from the automatically imported movies throught lists in Radarr. I have created 2 basic API wrappers to connect to Radarr and TMDB (the available API wrappers did not work). This script will do the following:
 1. Get a full overview of movies.
 2. Exctract the tmdbid value of each movie found.
 3. Lookup the extracted `tmdbid` value from Radarr at TMDB itself and check if the movie is available on one of the chosen providers in your country.
-4. All movie ids (database ids from Radarr) that are available on one of the chosen streaming services will be deleted and excluded form auto import in the future.
+4. All movie ids (database ids from Radarr) that are available on one of the chosen streaming services will be deleted and excluded from auto import in the future.
 
 ## Dependencies
 - Python3
-- Radarr v3 (latest develop)
+- Radarr v3 (latest)
 - TMDB account (Free)
 
 ## Installation
 ```bash
-git clone https://github.com/haijeploeg/exclude_streaming_radarr.git
-pip install -r requirements.txt
+pip install excludarr
 ```
 
 ## Configuration
-Open `exclude_streaming_from_radarr.py` and adjust the following values as needed (bear in mind that some settings can be set using an environment variable. e.g. `export TMDB_API_KEY='supersecret'`):
+To configure the application make sure that one of the following files exists:
 
-Setting | Value | Set via environment | Default value | Description
----|---|---|---|---
-TMDB_API_KEY | str | yes | `supersecret` | Your TMDB API key.
-TMDB_LOCALE | str | yes | `NL` | A 2 letter country code. Defaults to: `'NL'`.
-RADARR_URL | str | yes | `http://localhost:7878` | The Radarr base url.
-RADARR_API_KEY | str | yes | `supersecret` | Your Radarr API key.
-RADARR_VERIFY_SSL | bool | yes | `True` | Whether or not to verify the SSL certificate.
-RADARR_REMOVE_IF_NOT_FOUND | bool | yes | `True` | If a movie from Radarr is not found on tmdbid (if it is deleted on tmdbid for example) delete this movie too.
-RADARR_DELETE_FILES | bool | yes | `True` | Wether tot delete any existing files.
-RADARR_ADD_IMPORT_EXCLUSION | bool | yes | `True` | Wether to exclude the movie from any future import.
-RADARR_EXCLUDE_PROVIDERS | string | yes | `netflix` | A comma seperated string containing all the streaming services you want to exclude from importing in to radarr. NOT case sensitive. Example `export RADARR_EXCLUDE_PROVIDERS="netflix, amazon prime video, videoland". More info: https://developers.themoviedb.org/3/movies/get-movie-watch-providers
+```
+/etc/excludarr/excludarr.yml
+~/.config/excludarr/excludarr.yml
+~/.excludarr/config/excludarr.yml
+~/.excludarr.yml
+./.excludarr.yml
+```
+
+The application will read those configuration files in that order. So `./.excludarr.yml` will overwrite `/etc/excludarr/excludarr.yml`. For a full list of options and their description see `.excludarr-example.yml` in this repository.
 
 ## How to use
-Make sure all the variables are exported and set as needed.
+Make sure you have setup the configuration file correctly. Read the help page carefully. By default the tool will never delete anything without the `--force` flag specified.
+
 ```bash
-$ python exclude_streaming_from_radarr.py
-python exclude_streaming_from_radarr.py
-Will remove: 502 - The Old Guard
-Deleted 1 movie(s)
+$ excludarr delete
+┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ ID  ┃ Title                                  ┃ Providers ┃
+┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ 8   │ Outside the Wire                       │ netflix   │
+│ 12  │ We Can Be Heroes                       │ netflix   │
+│ 13  │ Jumanji: The Next Level                │ netflix   │
+│ 17  │ Bad Boys for Life                      │ netflix   │
+│ 18  │ The SpongeBob Movie: Sponge on the Run │ netflix   │
+└─────┴────────────────────────────────────────┴───────────┘
+Are you sure you want to delete the movies listed in the table from radarr? (y/N)
 ```
 
 # Development
