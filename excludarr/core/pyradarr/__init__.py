@@ -11,6 +11,7 @@ from .exceptions import (
     RadarrValidationException,
 )
 from .v3.movie import Movie
+from .v3.moviefile import MovieFile
 
 
 class Radarr(object):
@@ -29,6 +30,7 @@ class Radarr(object):
 
         # Register managers based on api version
         self.movie = Movie(self)
+        self.moviefile = MovieFile(self)
 
     def __exit__(self, *args):
         self.session.close()
