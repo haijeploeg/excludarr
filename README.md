@@ -31,8 +31,9 @@ The application will read those configuration files in that order. So `./.exclud
 ## How to use
 Make sure you have setup the configuration file correctly. Read the help page carefully. By default the tool will never delete anything without the `--force` flag specified.
 
+To delete movies you can execute the following:
 ```bash
-$ excludarr delete
+$ excludarr exclude -a delete
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ ID  ┃ Title                                  ┃ Providers ┃
 ┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
@@ -42,8 +43,25 @@ $ excludarr delete
 │ 17  │ Bad Boys for Life                      │ netflix   │
 │ 18  │ The SpongeBob Movie: Sponge on the Run │ netflix   │
 └─────┴────────────────────────────────────────┴───────────┘
-Are you sure you want to delete the movies listed in the table from radarr? (y/N)
+Are you sure you want to change the status of the movies to: delete? (y/N) y
 ```
+
+To only change the status to not monitored in radarr:
+```bash
+$ excludarr exclude -a not-monitored
+┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ ID  ┃ Title                                  ┃ Providers ┃
+┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ 8   │ Outside the Wire                       │ netflix   │
+│ 12  │ We Can Be Heroes                       │ netflix   │
+│ 13  │ Jumanji: The Next Level                │ netflix   │
+│ 17  │ Bad Boys for Life                      │ netflix   │
+│ 18  │ The SpongeBob Movie: Sponge on the Run │ netflix   │
+└─────┴────────────────────────────────────────┴───────────┘
+Are you sure you want to change the status of the movies to: not-monitored? (y/N) y
+```
+
+Use the `--help` flag to get more information.
 
 # Development
 This library is still being developed. pytmdb and pyradarr will later be seperate modules.
