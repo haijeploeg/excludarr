@@ -28,7 +28,7 @@ class Base(Controller):
         description = "Exclude streaming services such as netflix from Radarr"
 
         # text displayed at the bottom of --help output
-        epilog = "Usage: excludarr delete --providers netflix --country nl"
+        epilog = "Usage: excludarr exclude -a delete --providers netflix --country nl"
 
         # controller level arguments. ex: 'excludarr --version'
         arguments = [
