@@ -142,7 +142,7 @@ class Base(Controller):
                         add_import_exclusion=add_import_exclusion,
                     )
                 self.app.print("Succesfully deleted the movies from Radarr")
-        elif action == "not-monitored":
+        elif action == "not-monitored" and exclude_ids and execute_action:
             for id, movie_info in exclude_ids.items():
                 movie_info.update({"monitored": False})
                 radarr.movie.update_movie(movie_info)
