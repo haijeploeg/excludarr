@@ -63,6 +63,24 @@ Are you sure you want to change the status of the movies to: not-monitored? (y/N
 
 Use the `--help` flag to get more information.
 
+### Docker
+To use this setup using Docker, you can use the `haijeploeg/excludarr` container. You can use the following environment variables:
+
+Variable | Default | Description
+--- | --- | ---
+GENERAL_COUNTRY | NL | The two letter country code
+GENERAL_PROVIDERS | netflix | Comma seperated list of providers. e.g. `GENERAL_PROVIDERS=netflix, amazon prime video`
+TMDB_API_KEY | secret | Your TMDB API key
+RADARR_URL | http://localhost:7878 | The Radarr URL
+RADARR_API_KEY | secret | Your Radarr API Key
+RADARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`
+
+You can put those variables in a env file (e.g. name is=t `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
+
+```bash
+docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest exclude -a delete
+```
+
 # Development
 This library is still being developed. pytmdb and pyradarr will later be seperate modules.
 
