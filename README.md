@@ -1,3 +1,6 @@
+[![release](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml)
+[![Docker](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml)
+[![PyPI version](https://badge.fury.io/py/excludarr.svg)](https://badge.fury.io/py/excludarr)
 # Excludarr
 By default there is no option to exclude streaming providers from the automatically imported movies throught lists in Radarr. I have created 2 basic API wrappers to connect to Radarr and TMDB (the available API wrappers did not work). This script will do the following:
 1. Get a full overview of movies.
