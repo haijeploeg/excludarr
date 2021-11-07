@@ -172,8 +172,8 @@ class Base(Controller):
         radarr = Radarr(radarr_url, radarr_api_key, ssl_verify=radarr_verify_ssl)
         tmdb = TMDB(tmdb_api_key)
 
-        # Setup a list of ids to delete
-        exclude_ids = {}
+        # Setup a list of ids to add back to monitored
+        include_list = {}
 
         # Setup the rich table
         table = Table(box=box.MINIMAL_DOUBLE_HEAD)
@@ -200,7 +200,7 @@ class Base(Controller):
                         providers = [x for x in local_providers if x in exclude_providers]
 
                         if not providers:
-                            exclude_ids.update({movie["id"]: movie})
+                            include_list.update({movie["id"]: movie})
                             table.add_row(
                                 f"{movie['id']}",
                                 f"{movie['title']}",
@@ -210,7 +210,7 @@ class Base(Controller):
                 except KeyError:
                     # This will only raise if there is no streaming provider found
                     # using the selected country. 
-                    exclude_ids.update({movie["id"]: movie})
+                    include_list.update({movie["id"]: movie})
                     table.add_row(
                         f"{movie['id']}",
                         f"{movie['title']}",
@@ -232,8 +232,13 @@ class Base(Controller):
         else:
             execute_action = True
 
-        if execute_action and exclude_ids:
-            pass
+        if execute_action and include_list:
+            for _, movie_info in include_list.items():
+                movie_info.update({"monitored": True})
+                radarr.movie.update_movie(movie_info)
+
+            self.app.print("Succesfully changed the movies in Radarr to Monitored")
+
 
     @ex(
         label="exclude",
