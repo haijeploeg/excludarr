@@ -64,6 +64,24 @@ $ excludarr exclude -a not-monitored
 Are you sure you want to change the status of the movies to: not-monitored? (y/N) y
 ```
 
+To check the "not-monitored" movies are not on a configured streaming provider anymore and add them back to monitored state:
+
+```
+$ excludarr check
+      ╷
+  ID  │ Title
+ ═════╪════════════════════════════════════════════
+  33  │ Iron Man
+  35  │ Candyman
+  36  │ Avatar
+  37  │ The Avengers
+  39  │ Skyfall
+  41  │ Iron Man 3
+      ╵
+Are you sure you want to change the status of the movies back to monitored? (y/N) y
+Succesfully changed the movies in Radarr to Monitored
+```
+
 Use the `--help` flag to get more information.
 
 ### Docker
@@ -78,7 +96,7 @@ RADARR_URL | http://localhost:7878 | The Radarr URL
 RADARR_API_KEY | secret | Your Radarr API Key
 RADARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`
 
-You can put those variables in a env file (e.g. name is=t `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
+You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
 
 ```bash
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest exclude -a delete

@@ -6,6 +6,7 @@ from ..core.version import get_version
 from ..core.pyradarr import Radarr
 from ..core.pytmdb import TMDB, TMDBException
 
+from rich import box
 from rich.live import Live
 from rich.table import Table
 
@@ -46,7 +47,6 @@ class Base(Controller):
         tmdb_api_key,
         exclude_providers,
         country,
-        media_type,
         action,
         force,
         remove_if_not_found,
@@ -67,12 +67,13 @@ class Base(Controller):
         exclude_ids = {}
 
         # Setup the rich table
-        table = Table()
-        table.add_column("ID")
-        table.add_column("Title")
-        table.add_column("Providers")
+        table = Table(box=box.MINIMAL_DOUBLE_HEAD)
 
         with Live(table):
+            # Setup columns
+            table.add_column("ID")
+            table.add_column("Title")
+            table.add_column("Providers")
             # Get all movies from radarr and check if tmdbid is being streamed on configured providers
             for movie in radarr.movie.get_all_movies():
                 try:
@@ -86,7 +87,7 @@ class Base(Controller):
                         x["provider_name"].lower() for x in tmdb_providers["flatrate"]
                     ]
 
-                    # Check if the founded providers are in
+                    # Check if the founded providers are in the configured list of configured providers
                     providers = [x for x in local_providers if x in exclude_providers]
                     if providers:
                         exclude_ids.update({movie["id"]: movie})
@@ -154,6 +155,90 @@ class Base(Controller):
             self.app.print("Succesfully changed the movies in Radarr to Not Monitored")
             if delete_files:
                 self.app.print("Succesfully deleted any files if there where any")
+
+    def _check_radarr(
+        self,
+        tmdb_api_key,
+        exclude_providers,
+        country,
+        yes
+    ):
+        # Get radarr variables
+        radarr_url = self.app.config.get("radarr", "url")
+        radarr_api_key = self.app.config.get("radarr", "api_key")
+        radarr_verify_ssl = self.app.config.get("radarr", "verify_ssl")
+
+        # Setup Radarr and TMDB
+        radarr = Radarr(radarr_url, radarr_api_key, ssl_verify=radarr_verify_ssl)
+        tmdb = TMDB(tmdb_api_key)
+
+        # Setup a list of ids to add back to monitored
+        include_list = {}
+
+        # Setup the rich table
+        table = Table(box=box.MINIMAL_DOUBLE_HEAD)
+
+        with Live(table):
+            # Setup columns
+            table.add_column("ID")
+            table.add_column("Title")
+            # Get all movies from radarr and check if tmdbid is being streamed on configured providers
+            for movie in radarr.movie.get_all_movies():
+                try:
+                    if not movie["monitored"]:
+                        # Get the providers in the specified country of the movie from TMDB
+                        tmdb_providers = tmdb.movie.get_watch_providers(movie["tmdbId"])[
+                            "results"
+                        ][country]
+
+                        # Add all found providers to a list
+                        local_providers = [
+                            x["provider_name"].lower() for x in tmdb_providers["flatrate"]
+                        ]
+
+                        # Check if the founded providers are in the configured list of configured providers
+                        providers = [x for x in local_providers if x in exclude_providers]
+
+                        if not providers:
+                            include_list.update({movie["id"]: movie})
+                            table.add_row(
+                                f"{movie['id']}",
+                                f"{movie['title']}",
+                            )
+                except TMDBException:
+                    pass
+                except KeyError:
+                    # This will only raise if there is no streaming provider found
+                    # using the selected country. 
+                    include_list.update({movie["id"]: movie})
+                    table.add_row(
+                        f"{movie['id']}",
+                        f"{movie['title']}",
+                    )
+
+        # Set execute_action to false
+        execute_action = False
+
+        # Prompt when force is not set
+        if not yes:
+            p = shell.Prompt(
+                f"Are you sure you want to change the status of the movies back to monitored? (y/N)",
+                default="N",
+            )
+            res = p.prompt()
+
+            if res.upper() == "Y":
+                execute_action = True
+        else:
+            execute_action = True
+
+        if execute_action and include_list:
+            for _, movie_info in include_list.items():
+                movie_info.update({"monitored": True})
+                radarr.movie.update_movie(movie_info)
+
+            self.app.print("Succesfully changed the movies in Radarr to Monitored")
+
 
     @ex(
         label="exclude",
@@ -262,11 +347,78 @@ class Base(Controller):
                 tmdb_api_key,
                 exclude_providers,
                 country,
-                media_type,
                 action,
                 force,
                 remove_if_not_found,
                 delete_files,
                 add_import_exclusion,
                 legacy_exclude,
+            )
+
+    @ex(
+        label="check",
+        help="Checks if there are any movies that should change from not-monitored to monitored.",
+        arguments=[
+            (
+                ["-p", "--providers"],
+                {
+                    "help": "a single streaming provider, can be set multiple times",
+                    "action": "append",
+                    "default": [],
+                    "dest": "providers",
+                },
+            ),
+            (
+                ["-c", "--country"],
+                {
+                    "help": "the 2 letter country code you are living in",
+                    "action": "store",
+                },
+            ),
+            (
+                ["-t", "--type"],
+                {
+                    "help": "the type of endpoint to reach. Only Radarr is supported at the moment.",
+                    "action": "store",
+                    "default": "radarr",
+                    "choices": ["radarr"],
+                },
+            ),
+            (
+                ["-y", "--yes"],
+                {"help": "auto accept the status change question", "action": "store_true"},
+            ),
+        ],
+    )
+    def check(self):
+        # Get command line arguments
+        exclude_providers = self.app.pargs.providers
+        country = self.app.pargs.country
+        media_type = self.app.pargs.type
+        yes = self.app.pargs.yes
+
+        # Get TMDB configuration
+        tmdb_api_key = self.app.config.get("tmdb", "api_key")
+
+        # Set defaults if there are none provided
+        if len(exclude_providers) == 0:
+            exclude_providers = self.app.config.get("general", "providers")
+        if country == None:
+            country = self.app.config.get("general", "country")
+
+        # Ensure the 2 letter country code is uppercase
+        country = country.upper()
+
+        # Ensure the providers list is all lowercase
+        exclude_providers = [x.lower() for x in exclude_providers]
+
+        # Check wether to list sonarr or radarr
+        if media_type == "sonarr":
+            pass
+        elif media_type == "radarr":
+            self._check_radarr(
+                tmdb_api_key,
+                exclude_providers,
+                country,
+                yes
             )

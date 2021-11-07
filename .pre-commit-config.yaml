@@ -1,13 +1,13 @@
 repos:
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v4.0.1
     hooks:
     - id: end-of-file-fixer
     - id: trailing-whitespace
 
   - repo: https://github.com/psf/black
-    rev: 20.8b1
+    rev: 21.10b0
     hooks:
       - id: black
         name: Python Black
