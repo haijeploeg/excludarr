@@ -7,6 +7,8 @@ from json import JSONDecodeError
 
 from .exceptions import TMDBException
 from .v3.movies import Movie
+from .v3.tv import TV
+from .v3.find import Find
 
 
 class TMDB(object):
@@ -26,6 +28,8 @@ class TMDB(object):
 
         # Register managers
         self.movie = Movie(self)
+        self.tv = TV(self)
+        self.find = Find(self)
 
     def __exit__(self, *args):
         self.session.close()

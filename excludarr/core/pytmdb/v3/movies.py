@@ -1,4 +1,3 @@
-# Imports
 from ..base import Manager
 
 

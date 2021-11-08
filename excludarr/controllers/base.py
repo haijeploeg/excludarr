@@ -4,6 +4,7 @@ from cement.utils.version import get_version_banner
 from ..core.version import get_version
 
 from ..core.pyradarr import Radarr
+from ..core.pysonarr import Sonarr
 from ..core.pytmdb import TMDB, TMDBException
 
 from rich import box
@@ -26,7 +27,7 @@ class Base(Controller):
         label = "base"
 
         # text displayed at the top of --help output
-        description = "Exclude streaming services such as netflix from Radarr"
+        description = "Exclude streaming services such as netflix from Radarr/Sonarr"
 
         # text displayed at the bottom of --help output
         epilog = "Usage: excludarr exclude -a delete --providers netflix --country nl"
@@ -41,6 +42,48 @@ class Base(Controller):
         """Default action if no sub-command is passed."""
 
         self.app.args.print_help()
+
+    def _exclude_sonarr(
+        self,
+        tmdb_api_key,
+        exclude_providers,
+        country,
+        action,
+        force,
+        remove_if_not_found,
+        delete_files,
+        add_import_exclusion,
+        legacy_exclude,
+    ):
+        # Get Sonarr variables
+        sonarr_url = self.app.config.get("sonarr", "url")
+        sonarr_api_key = self.app.config.get("sonarr", "api_key")
+        sonarr_verify_ssl = self.app.config.get("sonarr", "verify_ssl")
+
+        # Setup Sonarr and TMDB
+        sonarr = Sonarr(sonarr_url, sonarr_api_key, sonarr_verify_ssl)
+        tmdb = TMDB(tmdb_api_key)
+
+        exclude_ids = {}
+
+        for serie in sonarr.serie.get_all_series():
+            tmdbid = tmdb.find.find_by_id(serie["tvdbId"], "tvdb_id")["tv_results"][0][
+                "id"
+            ]
+
+            tmdb_providers = tmdb.tv.get_watch_providers(tmdbid)["results"][country]
+            pprint(tmdb_providers)
+            # Add all found providers to a list
+            local_providers = [
+                x["provider_name"].lower() for x in tmdb_providers["flatrate"]
+            ]
+
+            # Check if the founded providers are in the configured list of configured providers
+            providers = [x for x in local_providers if x in exclude_providers]
+            if providers:
+                exclude_ids.update({serie["id"]: serie})
+
+        print(exclude_ids.keys())
 
     def _exclude_radarr(
         self,
@@ -156,13 +199,7 @@ class Base(Controller):
             if delete_files:
                 self.app.print("Succesfully deleted any files if there where any")
 
-    def _check_radarr(
-        self,
-        tmdb_api_key,
-        exclude_providers,
-        country,
-        yes
-    ):
+    def _check_radarr(self, tmdb_api_key, exclude_providers, country, yes):
         # Get radarr variables
         radarr_url = self.app.config.get("radarr", "url")
         radarr_api_key = self.app.config.get("radarr", "api_key")
@@ -187,17 +224,20 @@ class Base(Controller):
                 try:
                     if not movie["monitored"]:
                         # Get the providers in the specified country of the movie from TMDB
-                        tmdb_providers = tmdb.movie.get_watch_providers(movie["tmdbId"])[
-                            "results"
-                        ][country]
+                        tmdb_providers = tmdb.movie.get_watch_providers(
+                            movie["tmdbId"]
+                        )["results"][country]
 
                         # Add all found providers to a list
                         local_providers = [
-                            x["provider_name"].lower() for x in tmdb_providers["flatrate"]
+                            x["provider_name"].lower()
+                            for x in tmdb_providers["flatrate"]
                         ]
 
                         # Check if the founded providers are in the configured list of configured providers
-                        providers = [x for x in local_providers if x in exclude_providers]
+                        providers = [
+                            x for x in local_providers if x in exclude_providers
+                        ]
 
                         if not providers:
                             include_list.update({movie["id"]: movie})
@@ -209,7 +249,7 @@ class Base(Controller):
                     pass
                 except KeyError:
                     # This will only raise if there is no streaming provider found
-                    # using the selected country. 
+                    # using the selected country.
                     include_list.update({movie["id"]: movie})
                     table.add_row(
                         f"{movie['id']}",
@@ -239,7 +279,6 @@ class Base(Controller):
 
             self.app.print("Succesfully changed the movies in Radarr to Monitored")
 
-
     @ex(
         label="exclude",
         help="Excludes the media that is also available on streaming providers",
@@ -263,10 +302,10 @@ class Base(Controller):
             (
                 ["-t", "--type"],
                 {
-                    "help": "the type of endpoint to reach. Only Radarr is supported at the moment.",
+                    "help": "the type of endpoint to reach.",
                     "action": "store",
                     "default": "radarr",
-                    "choices": ["radarr"],
+                    "choices": ["radarr", "sonarr"],
                 },
             ),
             (
@@ -341,7 +380,17 @@ class Base(Controller):
 
         # Check wether to list sonarr or radarr
         if media_type == "sonarr":
-            pass
+            self._exclude_sonarr(
+                tmdb_api_key,
+                exclude_providers,
+                country,
+                action,
+                force,
+                remove_if_not_found,
+                delete_files,
+                add_import_exclusion,
+                legacy_exclude,
+            )
         elif media_type == "radarr":
             self._exclude_radarr(
                 tmdb_api_key,
@@ -386,7 +435,10 @@ class Base(Controller):
             ),
             (
                 ["-y", "--yes"],
-                {"help": "auto accept the status change question", "action": "store_true"},
+                {
+                    "help": "auto accept the status change question",
+                    "action": "store_true",
+                },
             ),
         ],
     )
@@ -416,9 +468,4 @@ class Base(Controller):
         if media_type == "sonarr":
             pass
         elif media_type == "radarr":
-            self._check_radarr(
-                tmdb_api_key,
-                exclude_providers,
-                country,
-                yes
-            )
+            self._check_radarr(tmdb_api_key, exclude_providers, country, yes)

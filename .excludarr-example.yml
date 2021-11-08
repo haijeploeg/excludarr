@@ -19,3 +19,11 @@ radarr:
   api_key: 'secret'
   # Verify the SSL connection
   verify_ssl: false
+
+sonarr:
+  # The Sonarr base url (include http of https)
+  url: 'https://localhost:8989'
+  # The Radarr api key
+  api_key: 'secret'
+  # Verify the SSL connection
+  verify_ssl: false
