@@ -72,7 +72,6 @@ class Movie(Manager):
         return self.client.http_get(self.movie_lookup_path, params=params)
 
     def update_movies(self, **kwargs):
-        print(kwargs)
         return self.client.http_put(self.movie_path, json=kwargs)
 
     def delete_movies(self, movie_ids, delete_files=False, add_import_exclusion=False):
