@@ -53,7 +53,6 @@ class Base(Controller):
         remove_if_not_found,
         delete_files,
         add_import_exclusion,
-        legacy_exclude,
     ):
         # Get Sonarr variables
         sonarr_url = self.app.config.get("sonarr", "url")
@@ -66,24 +65,89 @@ class Base(Controller):
 
         exclude_ids = {}
 
-        for serie in sonarr.serie.get_all_series():
-            tmdbid = tmdb.find.find_by_id(serie["tvdbId"], "tvdb_id")["tv_results"][0][
-                "id"
-            ]
+        # Setup the rich table
+        table = Table(box=box.MINIMAL_DOUBLE_HEAD)
 
-            tmdb_providers = tmdb.tv.get_watch_providers(tmdbid)["results"][country]
-            pprint(tmdb_providers)
-            # Add all found providers to a list
-            local_providers = [
-                x["provider_name"].lower() for x in tmdb_providers["flatrate"]
-            ]
+        with Live(table):
+            # Setup columns
+            table.add_column("ID")
+            table.add_column("Title")
+            table.add_column("Providers")
 
-            # Check if the founded providers are in the configured list of configured providers
-            providers = [x for x in local_providers if x in exclude_providers]
-            if providers:
-                exclude_ids.update({serie["id"]: serie})
+            for serie in sonarr.serie.get_all_series():
+                try:
+                    tmdbid = tmdb.find.find_by_id(serie["tvdbId"], "tvdb_id")[
+                        "tv_results"
+                    ][0]["id"]
 
-        print(exclude_ids.keys())
+                    tmdb_providers = tmdb.tv.get_watch_providers(tmdbid)["results"][
+                        country
+                    ]
+                    # Add all found providers to a list
+                    local_providers = [
+                        x["provider_name"].lower() for x in tmdb_providers["flatrate"]
+                    ]
+
+                    # Check if the founded providers are in the configured list of configured providers
+                    providers = [x for x in local_providers if x in exclude_providers]
+                    if providers:
+                        exclude_ids.update({serie["id"]: serie})
+                        table.add_row(
+                            f"{serie['id']}",
+                            f"{serie['title']}",
+                            f"{', '.join(providers)}",
+                        )
+
+                except TMDBException:
+                    if remove_if_not_found:
+                        exclude_ids.update({serie["id"]: serie})
+                        table.add_row(
+                            f"{serie['id']}",
+                            f"{serie['title']}",
+                            f"TMDB ID UNKNOWN",
+                        )
+                except KeyError:
+                    # This will only raise if there is no streaming provider found
+                    # using the selected country
+                    pass
+
+        # Set execute_action to false
+        execute_action = False
+
+        # Prompt when force is not set
+        if not force:
+            p = shell.Prompt(
+                f"Are you sure you want to change the status of the series to: {action}? (y/N)",
+                default="N",
+            )
+            res = p.prompt()
+
+            if res.upper() == "Y":
+                execute_action = True
+        else:
+            execute_action = True
+
+        # Exclude the series based on the chosen action
+        if action == "delete" and exclude_ids and execute_action:
+            for id in exclude_ids.keys():
+                sonarr.serie.delete_serie(
+                    id,
+                    delete_files=delete_files,
+                    add_import_exclusion=add_import_exclusion,
+                )
+            self.app.print("Succesfully deleted the movies from Sonarr")
+        elif action == "not-monitored" and exclude_ids and execute_action:
+            for id, serie_info in exclude_ids.items():
+                serie_info.update({"monitored": False})
+                sonarr.serie.update_serie(serie_info)
+                if delete_files:
+                    episodefiles = sonarr.episodefile.get_episodefiles(id)
+                    for episodefile in episodefiles:
+                        sonarr.episodefile.delete_episodefile(episodefile["id"])
+
+            self.app.print("Succesfully changed the movies in Sonarr to Not Monitored")
+            if delete_files:
+                self.app.print("Succesfully deleted any files if there where any")
 
     def _exclude_radarr(
         self,
@@ -389,7 +453,6 @@ class Base(Controller):
                 remove_if_not_found,
                 delete_files,
                 add_import_exclusion,
-                legacy_exclude,
             )
         elif media_type == "radarr":
             self._exclude_radarr(

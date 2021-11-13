@@ -11,3 +11,13 @@ class Serie(Manager):
 
     def get_all_series(self):
         return self.client.http_get(self.serie_path)
+
+    def update_serie(self, updated_serie_dict):
+        return self.client.http_put(self.serie_path, json=updated_serie_dict)
+
+    def delete_serie(self, id, delete_files, add_import_exclusion):
+        params = {
+            "deleteFiles": delete_files,
+            "addImportExclusion": add_import_exclusion,
+        }
+        return self.client.http_delete(self.serie_id_path.format(id=id), params=params)

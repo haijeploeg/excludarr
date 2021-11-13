@@ -11,6 +11,7 @@ from .exceptions import (
     SonarrValidationException,
 )
 from .v3.serie import Serie
+from .v3.episodefile import EpisodeFile
 
 
 class Sonarr(object):
@@ -29,6 +30,7 @@ class Sonarr(object):
 
         # Register managers based on api version
         self.serie = Serie(self)
+        self.episodefile = EpisodeFile(self)
 
     def __exit__(self, *args):
         self.session.close()
