@@ -36,7 +36,7 @@ Make sure you have setup the configuration file correctly. Read the help page ca
 
 To delete movies you can execute the following:
 ```bash
-$ excludarr exclude -a delete
+$ excludarr exclude -t radarr -a delete
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ ID  ┃ Title                                  ┃ Providers ┃
 ┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
@@ -51,7 +51,7 @@ Are you sure you want to change the status of the movies to: delete? (y/N) y
 
 To only change the status to not monitored in radarr:
 ```bash
-$ excludarr exclude -a not-monitored
+$ excludarr exclude -t radarr -a not-monitored
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
 ┃ ID  ┃ Title                                  ┃ Providers ┃
 ┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
@@ -63,6 +63,8 @@ $ excludarr exclude -a not-monitored
 └─────┴────────────────────────────────────────┴───────────┘
 Are you sure you want to change the status of the movies to: not-monitored? (y/N) y
 ```
+
+The exclude command also works with Sonarr! Just change the `-t radarr` to `-t sonarr`. This only works using the exclude command, the check command is not compatible with sonarr yet.
 
 To check the "not-monitored" movies are not on a configured streaming provider anymore and add them back to monitored state:
 
@@ -95,6 +97,9 @@ TMDB_API_KEY | secret | Your TMDB API key
 RADARR_URL | http://localhost:7878 | The Radarr URL
 RADARR_API_KEY | secret | Your Radarr API Key
 RADARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`
+SONARR_URL | http://localhost:8989 | The Sonarr URL
+SONARR_API_KEY | secret | Your Sonarr API Key
+SONARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`
 
 You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
 
