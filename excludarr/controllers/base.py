@@ -110,6 +110,8 @@ class Base(Controller):
                     # This will only raise if there is no streaming provider found
                     # using the selected country
                     pass
+                except Exception:
+                    pass
 
         # Set execute_action to false
         execute_action = False
