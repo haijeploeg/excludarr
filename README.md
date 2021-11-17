@@ -1,27 +1,33 @@
 [![release](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml)
 [![Docker](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml)
 [![PyPI version](https://badge.fury.io/py/excludarr.svg)](https://badge.fury.io/py/excludarr)
+
 # Excludarr
+
 By default there is no option to exclude streaming providers from the automatically imported movies throught lists in Radarr. I have created 2 basic API wrappers to connect to Radarr and TMDB (the available API wrappers did not work). This script will do the following:
+
 1. Get a full overview of movies.
-2. Exctract the tmdbid value of each movie found.
-3. Lookup the extracted `tmdbid` value from Radarr at TMDB itself and check if the movie is available on one of the chosen providers in your country.
-4. All movie ids (database ids from Radarr) that are available on one of the chosen streaming services will be deleted and excluded from auto import in the future.
+1. Extract the tmdbid value of each movie found.
+1. Lookup the extracted `tmdbid` value from Radarr at TMDB itself and check if the movie is available on one of the chosen providers in your country.
+1. All movie ids (database ids from Radarr) that are available on one of the chosen streaming services will be deleted and excluded from auto import in the future.
 
 ## Dependencies
+
 - Python3
 - Radarr v3 (latest)
 - TMDB account (Free)
 
 ## Installation
+
 ```bash
 pip install excludarr
 ```
 
 ## Configuration
+
 To configure the application make sure that one of the following files exists:
 
-```
+```code
 /etc/excludarr/excludarr.yml
 ~/.config/excludarr/excludarr.yml
 ~/.excludarr/config/excludarr.yml
@@ -32,9 +38,11 @@ To configure the application make sure that one of the following files exists:
 The application will read those configuration files in that order. So `./.excludarr.yml` will overwrite `/etc/excludarr/excludarr.yml`. For a full list of options and their description see `.excludarr-example.yml` in this repository.
 
 ## How to use
+
 Make sure you have setup the configuration file correctly. Read the help page carefully. By default the tool will never delete anything without the `--force` flag specified.
 
 To delete movies you can execute the following:
+
 ```bash
 $ excludarr exclude -t radarr -a delete
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
@@ -50,6 +58,7 @@ Are you sure you want to change the status of the movies to: delete? (y/N) y
 ```
 
 To only change the status to not monitored in radarr:
+
 ```bash
 $ excludarr exclude -t radarr -a not-monitored
 ┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
@@ -68,7 +77,7 @@ The exclude command also works with Sonarr! Just change the `-t radarr` to `-t s
 
 To check the "not-monitored" movies are not on a configured streaming provider anymore and add them back to monitored state:
 
-```
+```bash
 $ excludarr check
       ╷
   ID  │ Title
@@ -87,6 +96,7 @@ Succesfully changed the movies in Radarr to Monitored
 Use the `--help` flag to get more information.
 
 ### Docker
+
 To use this setup using Docker, you can use the `haijeploeg/excludarr` container. You can use the following environment variables:
 
 Variable | Default | Description
@@ -108,7 +118,9 @@ docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest exclude
 ```
 
 # Development
+
 This library is still being developed. pytmdb and pyradarr will later be seperate modules.
 
 ## Contributing
+
 Feel free to help and contribute to this project :)
