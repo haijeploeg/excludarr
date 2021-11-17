@@ -1,0 +1,28 @@
+---
+
+name: lint
+
+'on':
+  pull_request:
+    branches:
+      - main
+
+
+jobs:
+
+  hadolint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run hadolint
+        uses: brpaz/hadolint-action@v1.3.1
+        with:
+          dockerfile: Dockerfile
+
+  markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Lint Markdown
+        uses: actionshub/markdownlint@main
