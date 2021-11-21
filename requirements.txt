@@ -1,1 +1,2 @@
-cement==3.0.4
+typer>=0.4.0
+loguru>=0.5.3

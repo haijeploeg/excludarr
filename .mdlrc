@@ -1,3 +1,0 @@
-style "all"
-show_kramdown_warnings true
-rules "~MD013", "~MD041"
