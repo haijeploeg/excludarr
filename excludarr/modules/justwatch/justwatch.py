@@ -42,8 +42,6 @@ class JustWatch(object):
             raise JustWatchNotFound()
         elif data.status_code == 429:
             raise JustWatchTooManyRequests()
-        elif data.status_code != 200:
-            print(data.status_code)
 
         try:
             result_json = data.json()
@@ -83,9 +81,7 @@ class JustWatch(object):
 
         # Check if the locale is a iso_3166_2 Country Code
         if not valid_locale:
-            locale = "".join(
-                [i["full_locale"] for i in jw_locales if i["iso_3166_2"] == locale]
-            )
+            locale = "".join([i["full_locale"] for i in jw_locales if i["iso_3166_2"] == locale])
 
         # If the locale is empty return the default locale
         if not locale:
@@ -98,7 +94,7 @@ class JustWatch(object):
 
         return self._http_get(path)
 
-    def query_title(self, query, content_type):
+    def query_title(self, query, content_type, fast=True, result={}, page=1):
         """
         Query JustWatch API to find information about a title
 
@@ -112,7 +108,14 @@ class JustWatch(object):
 
         json = {"query": query, "content_types": content_type}
 
-        return self._http_post(path, json=json)
+        page_result = self._http_post(path, json=json)
+        result.update(page_result)
+
+        if not fast and page < result["total_pages"]:
+            page += 1
+            self.query_title(query, content_type, fast=fast, result=result, page=page)
+
+        return result
 
     def get_movie(self, jw_id):
         path = f"/titles/movie/{jw_id}/locale/{self.locale}"

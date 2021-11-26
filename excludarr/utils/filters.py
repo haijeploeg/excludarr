@@ -1,13 +1,18 @@
-def get_tmdb_id(external_ids):
-    try:
-        tmdb_id = [
-            x["external_id"] for x in external_ids if x["provider"] == "tmdb_latest"
-        ][0]
-        tmdb_id = int(tmdb_id)
-    except (KeyError, IndexError):
-        tmdb_id = None
+import datetime
 
-    return tmdb_id
+
+def get_tmdb_ids(external_ids):
+    try:
+        tmdb_ids = [
+            int(x["external_id"])
+            for x in external_ids
+            if x["provider"] == "tmdb_latest" or x["provider"] == "tmdb"
+        ]
+        tmdb_ids = list(set(tmdb_ids))
+    except (KeyError, IndexError):
+        tmdb_ids = []
+
+    return tmdb_ids
 
 
 def get_jw_providers(raw_providers, providers):
@@ -46,3 +51,31 @@ def get_jw_movie_providers(raw_movie_data):
         pass
 
     return providers
+
+
+def get_release_date(raw_movie_data):
+    release_cinema = raw_movie_data.get("inCinemas")
+    release_digital = raw_movie_data.get("digitalRelease")
+    release_physical = raw_movie_data.get("physicalRelease")
+
+    if release_cinema:
+        release_date = datetime.datetime.strptime(release_cinema, "%Y-%m-%dT%H:%M:%SZ").strftime(
+            "%Y-%m-%d"
+        )
+    elif release_digital:
+        release_date = datetime.datetime.strptime(release_digital, "%Y-%m-%dT%H:%M:%SZ").strftime(
+            "%Y-%m-%d"
+        )
+    elif release_physical:
+        release_date = datetime.datetime.strptime(release_physical, "%Y-%m-%dT%H:%M:%SZ").strftime(
+            "%Y-%m-%d"
+        )
+    else:
+        release_date = "Unknown"
+
+    return release_date
+
+
+def get_filesize_gb(filesize):
+    filesize_gb = filesize / 1024.0 ** 3
+    return "%.2f" % filesize_gb + "GB"

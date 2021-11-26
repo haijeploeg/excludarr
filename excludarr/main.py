@@ -10,8 +10,8 @@ import commands.sonarr as sonarr
 
 
 app = typer.Typer()
-app.add_typer(radarr.app, name="radarr")
-app.add_typer(sonarr.app, name="sonarr")
+app.add_typer(radarr.app, name="radarr", help="Manages movies in Radarr.")
+app.add_typer(sonarr.app, name="sonarr", help="Manages TV shows and seasons in Sonarr.")
 
 
 def version_callback(value: bool):
@@ -41,9 +41,7 @@ def _setup_logging(debug):
 @app.callback()
 def main(
     debug: bool = False,
-    version: Optional[bool] = typer.Option(
-        None, "--version", callback=version_callback
-    ),
+    version: Optional[bool] = typer.Option(None, "--version", callback=version_callback),
 ):
     """
     Keeping your storage happy with Excludarr. This CLI tool will exclude

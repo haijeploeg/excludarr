@@ -78,7 +78,11 @@ class Config:
 
     @property
     def providers(self):
-        return self.general_section.get("providers", None)
+        return self.general_section.get("providers", [])
+
+    @property
+    def fast_search(self):
+        return self.general_section.get("fast_search", True)
 
     @property
     def tmdb_api_key(self):
@@ -94,7 +98,11 @@ class Config:
 
     @property
     def radarr_verify_ssl(self):
-        return self.radarr_section.get("verify_ssl", None)
+        return self.radarr_section.get("verify_ssl", False)
+
+    @property
+    def radarr_excludes(self):
+        return self.radarr_section.get("exclude", [])
 
     @property
     def sonarr_url(self):
@@ -106,4 +114,4 @@ class Config:
 
     @property
     def sonarr_verify_ssl(self):
-        return self.sonarr_section.get("verify_ssl", None)
+        return self.sonarr_section.get("verify_ssl", False)
