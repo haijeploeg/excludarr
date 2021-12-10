@@ -4,14 +4,19 @@ import sys
 from typing import Optional
 from loguru import logger
 
-from utils.version import __version__
 import commands.radarr as radarr
 import commands.sonarr as sonarr
+import commands.providers as providers
+
+from utils.version import __version__
 
 
 app = typer.Typer()
 app.add_typer(radarr.app, name="radarr", help="Manages movies in Radarr.")
 app.add_typer(sonarr.app, name="sonarr", help="Manages TV shows and seasons in Sonarr.")
+app.add_typer(
+    providers.app, name="providers", help="List all the possible providers for your locale."
+)
 
 
 def version_callback(value: bool):

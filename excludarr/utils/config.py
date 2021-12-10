@@ -115,3 +115,7 @@ class Config:
     @property
     def sonarr_verify_ssl(self):
         return self.sonarr_section.get("verify_ssl", False)
+
+    @property
+    def sonarr_excludes(self):
+        return self.sonarr_section.get("exclude", [])

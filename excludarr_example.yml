@@ -1,0 +1,44 @@
+general:
+  # Do a fast search of the movie. If this settings is false,
+  # all results from JustWatch will be gathered before continueing.
+  # This can be painfully slow and is in most cases not needed.
+  # Only disable this if Excludarr cannot find a movie and if you know what you are doing!
+  fast_search: true
+  # Set your locale, this can be a two letter country code or locale like: en_US.
+  locale: en_NL
+  # A list of providers you have a subscription on. You can get a list of available
+  # providers using: `excludarr providers list`
+  providers:
+    - Netflix
+    - Amazon Prime Video
+    - Apple iTunes
+    - Disney Plus
+
+# TMDB settings are optional. This is only used in case the serie is not found on JustWatch.
+# If a serie is not found on JustWatch using the IMDB ID, the TMDB API is being used to obtain
+# the TMDB ID from the TVDB ID. This is mostly not needed, only if you have a lot of unknown
+# series and your match score is really low.
+tmdb:
+  api_key: 123abc123abc123abc123abc123abc12
+
+radarr:
+  # The Radarr base url (include http of https)
+  url: 'http://localhost:7878'
+  # The Radarr api key
+  api_key: 123abc123abc123abc123abc123abc12
+  # Verify the SSL connection
+  verify_ssl: false
+  # Optional: exclude different titles. input the name the table output is showing.
+  exclude:
+    - 'Dave Chappelle: The Closer'
+
+sonarr:
+  # The Radarr base url (include http of https)
+  url: 'http://localhost:8989'
+  # The Radarr api key
+  api_key: 123abc123abc123abc123abc123abc12
+  # Verify the SSL connection
+  verify_ssl: false
+  # Optional: exclude different titles. input the name the table output is showing.
+  exclude:
+    - Queen of the South

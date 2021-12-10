@@ -1,13 +1,12 @@
 from loguru import logger
 from rich.progress import Progress
 
-from modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
-from modules.justwatch import JustWatch
-
 import modules.pyradarr as pyradarr
-from modules.pyradarr.exceptions import RadarrMovieNotFound
-
 import utils.filters as filters
+
+from modules.justwatch import JustWatch
+from modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
+from modules.pyradarr.exceptions import RadarrMovieNotFound
 
 
 class RadarrActions:
@@ -48,7 +47,7 @@ class RadarrActions:
         # and filter it with the given providers. This will ensure only the correct
         # providers are in the dictionary.
         raw_jw_providers = self.justwatch_client.get_providers()
-        jw_providers = filters.get_jw_providers(raw_jw_providers, providers)
+        jw_providers = filters.get_providers(raw_jw_providers, providers)
         logger.debug(
             f"Got the following providers: {', '.join([v['clear_name'] for _, v in jw_providers.items()])}"
         )
@@ -89,7 +88,7 @@ class RadarrActions:
 
                 if found:
                     # Get all the providers the movie is streaming on
-                    movie_providers = filters.get_jw_movie_providers(jw_movie_data)
+                    movie_providers = filters.get_jw_providers(jw_movie_data)
 
                     # Loop over the configured providers and check if the provider
                     # matches the providers advertised at the movie. If a match is found
@@ -207,8 +206,6 @@ class RadarrActions:
             self.radarr_client.movie.delete_movies(
                 ids, delete_files=delete_files, add_import_exclusion=add_import_exclusion
             )
-
-            logger.debug("Successfully deleted all movies at once")
         except RadarrMovieNotFound:
             logger.warning("Bulk delete failed, falling back to deleting each movie individually")
             for id in ids:
@@ -217,8 +214,6 @@ class RadarrActions:
                 self.radarr_client.movie.delete_movie(
                     id, delete_files=delete_files, add_import_exclusion=add_import_exclusion
                 )
-
-                logger.debug(f"Succesfully removed movie with Radarr ID: {id}")
         except Exception as e:
             logger.error(e)
             logger.error(

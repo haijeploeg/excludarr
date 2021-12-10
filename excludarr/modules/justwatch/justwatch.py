@@ -121,3 +121,13 @@ class JustWatch(object):
         path = f"/titles/movie/{jw_id}/locale/{self.locale}"
 
         return self._http_get(path)
+
+    def get_show(self, jw_id):
+        path = f"/titles/show/{jw_id}/locale/{self.locale}"
+
+        return self._http_get(path)
+
+    def get_season(self, jw_id):
+        path = f"/titles/show_season/{jw_id}/locale/{self.locale}"
+
+        return self._http_get(path)

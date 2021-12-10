@@ -1,12 +1,14 @@
-from typing import List, Optional
 import rich
-
 import typer
-from core.radarr_actions import RadarrActions
+
+from typing import List, Optional
 from loguru import logger
+
+import utils.output as output
+
+from core.radarr_actions import RadarrActions
 from utils.config import Config
 from utils.enums import Action
-import utils.output as output
 
 app = typer.Typer()
 
@@ -124,7 +126,6 @@ def exclude(
             # Determine and execute the action supplied (delete, not-monitored)
             if action == Action.delete:
                 radarr.delete(movies_to_exclude_ids, delete_files, exclusion)
-                rich.print("Succesfully deleted the movies from Radarr!")
             elif action == Action.not_monitored:
                 movie_info = [movie["radarr_object"] for _, movie in movies_to_exclude.items()]
                 radarr.disable_monitored(movie_info)
@@ -132,12 +133,7 @@ def exclude(
                 if delete_files:
                     radarr.delete_files(movies_to_exclude_ids)
 
-                rich.print(
-                    "Succesfully changed the status of the movies listed in Radarr to not monitored!"
-                )
-            else:
-                # TODO create seperate exception
-                raise Exception("No valid action is supplied")
+            output.print_success_exclude(action, "movies")
     else:
         rich.print("There are no more movies also available on the configured streaming providers!")
 
@@ -221,7 +217,7 @@ def init():
     """
     Initializes the command. Reads the configuration.
     """
-    logger.debug("Got Radarr as subcommand")
+    logger.debug("Got radarr as subcommand")
 
     # Set globals
     global config
