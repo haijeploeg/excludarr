@@ -170,12 +170,12 @@ def get_providers_from_seasons_episodes(seasons, episodes):
     return ", ".join(providers)
 
 
-def modify_sonarr_seasons(sonarr_object, seasons):
+def modify_sonarr_seasons(sonarr_object, seasons, monitored):
     sonarr_seasons = sonarr_object["seasons"]
 
     for entry in sonarr_seasons:
         if entry["seasonNumber"] in seasons:
-            entry["monitored"] = False
+            entry["monitored"] = monitored
 
     sonarr_object["seasons"] = sonarr_seasons
 

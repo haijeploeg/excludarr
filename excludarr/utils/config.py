@@ -5,7 +5,7 @@ from yaml import dump, safe_load
 from loguru import logger
 from pathlib import Path
 
-from .redact import redact_config_dict
+from excludarr.utils.redact import redact_config_dict
 
 
 class Config:

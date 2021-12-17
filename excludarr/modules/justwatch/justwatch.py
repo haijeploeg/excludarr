@@ -15,6 +15,7 @@ class JustWatch(object):
 
         # Setup session
         self.session = requests.Session()
+        self.session.verify = ssl_verify
 
         # Setup retries on failure
         retries = Retry(

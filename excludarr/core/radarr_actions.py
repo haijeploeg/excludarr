@@ -1,12 +1,12 @@
 from loguru import logger
 from rich.progress import Progress
 
-import modules.pyradarr as pyradarr
-import utils.filters as filters
+import excludarr.modules.pyradarr as pyradarr
+import excludarr.utils.filters as filters
 
-from modules.justwatch import JustWatch
-from modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
-from modules.pyradarr.exceptions import RadarrMovieNotFound
+from excludarr.modules.justwatch import JustWatch
+from excludarr.modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
+from excludarr.modules.pyradarr.exceptions import RadarrMovieNotFound
 
 
 class RadarrActions:
@@ -93,29 +93,30 @@ class RadarrActions:
                     # Loop over the configured providers and check if the provider
                     # matches the providers advertised at the movie. If a match is found
                     # update the exclude_movies dict
-                    for provider_id, provider_details in jw_providers.items():
-                        clear_name = provider_details["clear_name"]
+                    matched_providers = list(set(movie_providers.keys()) & set(jw_providers.keys()))
 
-                        if provider_id in movie_providers.keys():
+                    if matched_providers:
+                        clear_names = [
+                            provider_details["clear_name"]
+                            for provider_id, provider_details in jw_providers.items()
+                            if provider_id in matched_providers
+                        ]
 
-                            exclude_movies.update(
-                                {
-                                    radarr_id: {
-                                        "title": title,
-                                        "filesize": filesize,
-                                        "release_date": release_date,
-                                        "radarr_object": movie,
-                                        "tmdb_id": tmdb_id,
-                                        "jw_id": jw_id,
-                                        "providers": exclude_movies[radarr_id]["providers"]
-                                        + [clear_name]
-                                        if exclude_movies.get(radarr_id)
-                                        else [clear_name],
-                                    }
+                        exclude_movies.update(
+                            {
+                                radarr_id: {
+                                    "title": title,
+                                    "filesize": filesize,
+                                    "release_date": release_date,
+                                    "radarr_object": movie,
+                                    "tmdb_id": tmdb_id,
+                                    "jw_id": jw_id,
+                                    "providers": clear_names,
                                 }
-                            )
+                            }
+                        )
 
-                            logger.debug(f"{title} is streaming on {clear_name}")
+                        logger.debug(f"{title} is streaming on {', '.join(clear_names)}")
 
         return exclude_movies
 
@@ -131,7 +132,7 @@ class RadarrActions:
         # and filter it with the given providers. This will ensure only the correct
         # providers are in the dictionary.
         raw_jw_providers = self.justwatch_client.get_providers()
-        jw_providers = filters.get_jw_providers(raw_jw_providers, providers)
+        jw_providers = filters.get_providers(raw_jw_providers, providers)
         logger.debug(
             f"Got the following providers: {', '.join([v['clear_name'] for _, v in jw_providers.items()])}"
         )
@@ -171,29 +172,24 @@ class RadarrActions:
 
                 if found:
                     # Get all the providers the movie is streaming on
-                    movie_providers = filters.get_jw_movie_providers(jw_movie_data)
+                    movie_providers = filters.get_jw_providers(jw_movie_data)
 
-                    # Loop over the configured providers and check if the provider
-                    # matches the providers advertised at the movie. If a match is found
-                    # update the re_add_movies dict
-                    for provider_id, provider_details in jw_providers.items():
-                        clear_name = provider_details["clear_name"]
+                    # Check if the JustWatch providers matching the movie providers
+                    matched_providers = list(set(movie_providers.keys()) & set(jw_providers.keys()))
 
-                        if provider_id not in movie_providers.keys():
-
-                            re_add_movies.update(
-                                {
-                                    radarr_id: {
-                                        "title": title,
-                                        "release_date": release_date,
-                                        "radarr_object": movie,
-                                        "tmdb_id": tmdb_id,
-                                        "jw_id": jw_id,
-                                    }
+                    if not matched_providers:
+                        re_add_movies.update(
+                            {
+                                radarr_id: {
+                                    "title": title,
+                                    "release_date": release_date,
+                                    "radarr_object": movie,
+                                    "tmdb_id": tmdb_id,
+                                    "jw_id": jw_id,
                                 }
-                            )
-
-                            logger.debug(f"{title} is streaming on {clear_name}")
+                            }
+                        )
+                        logger.debug(f"{title} is not streaming on a configured provider")
 
         return re_add_movies
 

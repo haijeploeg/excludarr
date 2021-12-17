@@ -7,9 +7,9 @@ from rich.prompt import Confirm
 from rich.text import Text
 from rich import box
 
-import utils.filters as filters
+import excludarr.utils.filters as filters
 
-from utils.enums import Action
+from excludarr.utils.enums import Action
 
 
 def print_movies_to_exclude(movies, total_filesize):
@@ -83,6 +83,31 @@ def print_series_to_exclude(series, total_filesize):
 
             # Add table rows
             table.add_row(release_year, title, diskspace, season, episodes, providers, ended)
+
+
+def print_series_to_re_add(series):
+    # Setup console
+    console = Console()
+
+    # Setup table
+    table = Table(show_footer=False, row_styles=["none", "dim"], box=box.MINIMAL, pad_edge=False)
+    with Live(table, console=console, screen=False):
+        # Setup table columns
+        table.add_column("Release Year")
+        table.add_column("Title")
+        table.add_column("Seasons")
+        table.add_column("Episodes")
+        table.add_column("Ended")
+
+        for _, serie in series.items():
+            release_year = str(serie["release_year"])
+            title = serie["title"]
+            season = filters.get_pretty_seasons(serie["seasons"])
+            episodes = filters.get_pretty_episodes(serie["episodes"])
+            ended = filters.bool2str(serie["ended"])
+
+            # Add table rows
+            table.add_row(release_year, title, season, episodes, ended)
 
 
 def print_providers(providers):

@@ -2,9 +2,9 @@ import typer
 from typing import Optional
 from loguru import logger
 
-from modules.justwatch import justwatch
-from utils.config import Config
-from utils import output
+from excludarr.modules.justwatch import justwatch
+from excludarr.utils.config import Config
+from excludarr.utils import output
 
 app = typer.Typer()
 

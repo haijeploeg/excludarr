@@ -4,11 +4,11 @@ import sys
 from typing import Optional
 from loguru import logger
 
-import commands.radarr as radarr
-import commands.sonarr as sonarr
-import commands.providers as providers
+import excludarr.commands.radarr as radarr
+import excludarr.commands.sonarr as sonarr
+import excludarr.commands.providers as providers
 
-from utils.version import __version__
+from excludarr import __version__
 
 
 app = typer.Typer()
@@ -61,5 +61,9 @@ def main(
     logger.debug(f"Starting Excludarr v{__version__}")
 
 
+def cli():
+    app(prog_name="excludarr")
+
+
 if __name__ == "__main__":
-    app()
+    cli()

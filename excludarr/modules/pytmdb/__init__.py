@@ -19,11 +19,9 @@ class TMDB(object):
         self.api_url = "{}/{}".format(self._base_url, self._api_version)
         self.api_key = api_key
 
-        # Setup SSL verification
-        self.ssl_verify = ssl_verify
-
         # Setup session
         self.session = requests.Session()
+        self.session.verify = ssl_verify
         self.session.params = {"api_key": self.api_key}
 
         # Register managers

@@ -4,11 +4,12 @@ import typer
 from typing import List, Optional
 from loguru import logger
 
-import utils.output as output
+import excludarr.utils.output as output
 
-from core.radarr_actions import RadarrActions
-from utils.config import Config
-from utils.enums import Action
+from excludarr.core.radarr_actions import RadarrActions
+from excludarr.utils.config import Config
+from excludarr.utils.enums import Action
+from excludarr.modules.pyradarr.exceptions import RadarrInvalidApiKey
 
 app = typer.Typer()
 
