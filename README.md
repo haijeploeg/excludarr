@@ -1,5 +1,11 @@
+[![release](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml)
+[![Docker](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml)
+[![PyPI version](https://badge.fury.io/py/excludarr.svg)](https://badge.fury.io/py/excludarr)
+
 # Excludarr
 Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completely manages you library in Sonarr and Radarr to only consist out of movies and series that are not present on any of the configured streaming providers. Excludarr can also re monitor movies and series if it is not available anymore on any of the configured streaming providers. You can also configure to delete the already downloaded files of the excluded entry to keep your storage happy! 🎉
+
+![Example](.examples/excludarr.svg)
 
 ## Installation
 Installation of excludarr can be done using pip.
@@ -99,7 +105,7 @@ The `sonarr` subcommands manages the library in your configured Sonarr instance.
 To delete or disable monitoring of the series in Sonarr you can execute the `excludarr sonarr exclude` command. You can determine to either delete the serie or change the status to not monitored. You can alo configure if you want to delete the associated files. Excludarr will exclude the whole serie, the season(s) or individually episodes.
 
 If you use the delete action (`excludarr sonarr exclude -a delete`) it will only delete the serie if the serie is ended and all seasons are streaming on a configured streaming service. A few examples with Netflix as a streaming provider.
-- **Serie A** has a total of 5 seasons and has ended. If all 5 seasons are found on Netflix it will delete the serie from Sonarr. 
+- **Serie A** has a total of 5 seasons and has ended. If all 5 seasons are found on Netflix it will delete the serie from Sonarr.
 - **Serie B** has a total of 4 seasons and it still continueing (season 5 will be released next year). If all 4 seasons are found on Netflix it will disable the monitoring of all 4 seasons, but it will **not** delete the whole serie from Sonarr.
 - **Serie C** has a total of 6 seasons and has ended. If only 5 seasons are found on Netflix, Excludarr will disable monitoring of the 5 seasons and will **not** delete the serie from Sonarr.
 
@@ -150,7 +156,7 @@ Succesfully deleted the series and/or changed the status of serveral seasons and
 
 > NOTE: If you want to exclude any of the series listed in the table, just copy the title and paste it in your configuration file under `sonarr -> excludes`.
 
-### re-add
+### Re-add
 To re enable monitoring of not-monitored series in Sonarr that are not present anymore on any of the streaming providers, you can execute `excludarr sonarr re-add`. This will lookup all series/seasons/episodes that are not monitored anymore in Sonarr and check if they are still available on the configured streaming providers. If there is no match, the status of the serie will change to monitored. This is handy if you remove a streaming provider from the configuration, or if the movie is being deleted from a streaming provider.
 
 ```bash
