@@ -220,6 +220,7 @@ docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest radarr 
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr exclude -a not-monitored
 ```
 ## FAQ
+Below are some frequently asked questions. Please look if your question is listed below before you submit an issue.
 
 ##
 **Q:** I used the `--legacy` flag before, where can I find it in excludarr v1.0.0?
