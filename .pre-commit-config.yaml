@@ -4,7 +4,9 @@ repos:
     rev: v4.0.1
     hooks:
     - id: end-of-file-fixer
+      exclude: ^.example/*
     - id: trailing-whitespace
+      exclude: ^.example/*
     - id: check-yaml
 
   - repo: https://github.com/psf/black
