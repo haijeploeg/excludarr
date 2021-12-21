@@ -29,6 +29,8 @@ radarr:
   # Verify the SSL connection
   verify_ssl: false
   # Optional: exclude different titles. input the name the table output is showing.
+  # This will exclude the title in all actions (exclude and re-add) that excludarr does.
+  # This will prevent that excludarr will touch the title in Radarr.
   exclude:
     - 'Dave Chappelle: The Closer'
 
@@ -40,5 +42,7 @@ sonarr:
   # Verify the SSL connection
   verify_ssl: false
   # Optional: exclude different titles. input the name the table output is showing.
+  # This will exclude the title in all actions (exclude and re-add) that excludarr does.
+  # This will prevent that excludarr will touch the title in Sonarr.
   exclude:
     - Queen of the South

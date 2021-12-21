@@ -82,8 +82,8 @@ def exclude(
                 season for season in values["seasons"] if season["monitored"] or season["has_file"]
             ]
         else:
-            values["episodes"] = [episode for episode in values["episodes"] if episode["monitored"]]
-            values["seasons"] = [season for season in values["seasons"] if season["monitored"]]
+            values["episodes"] = [episode for episode in values["episodes"] if episode.get("monitored", False)]
+            values["seasons"] = [season for season in values["seasons"] if season.get("monitored", False)]
     if action == Action.not_monitored:
         series_to_exclude = {
             id: values
@@ -167,7 +167,7 @@ def exclude(
         rich.print("There are no more series also available on the configured streaming providers!")
 
 
-@app.command()
+@app.command(help="Change status of series to monitored if no provider is found")
 def re_add(
     providers: Optional[List[str]] = typer.Option(
         None,

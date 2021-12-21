@@ -58,19 +58,19 @@ class Config:
 
     @property
     def general_section(self):
-        return self.config.get("general")
+        return self.config.get("general", {})
 
     @property
     def tmdb_section(self):
-        return self.config.get("tmdb")
+        return self.config.get("tmdb", {})
 
     @property
     def radarr_section(self):
-        return self.config.get("radarr")
+        return self.config.get("radarr", {})
 
     @property
     def sonarr_section(self):
-        return self.config.get("sonarr")
+        return self.config.get("sonarr", {})
 
     @property
     def locale(self):

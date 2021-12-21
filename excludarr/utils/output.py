@@ -20,7 +20,7 @@ def print_movies_to_exclude(movies, total_filesize):
     table = Table(show_footer=True, row_styles=["none", "dim"], box=box.MINIMAL, pad_edge=False)
     with Live(table, console=console, screen=False):
         # Setup table columns and totals
-        table.add_column("Release Date")
+        table.add_column("Release Date") or "Unknown"
         table.add_column("Title", Text.from_markup("[b][i]Total Used Diskspace", justify="right"))
         table.add_column("Used Diskspace", filters.get_filesize_gb(total_filesize))
         table.add_column("Streaming Providers")
@@ -76,9 +76,7 @@ def print_series_to_exclude(series, total_filesize):
             diskspace = filters.get_filesize_gb(serie["filesize"])
             season = filters.get_pretty_seasons(serie["seasons"])
             episodes = filters.get_pretty_episodes(serie["episodes"])
-            providers = filters.get_providers_from_seasons_episodes(
-                serie["seasons"], serie["episodes"]
-            )
+            providers = serie["providers"]
             ended = filters.bool2str(serie["ended"])
 
             # Add table rows

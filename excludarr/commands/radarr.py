@@ -184,6 +184,11 @@ def re_add(
 
     # Get the movies that should be re monitored
     movies_to_re_add = radarr.get_movies_to_re_add(providers, config.fast_search, disable_progress)
+    movies_to_re_add = {
+        id: values
+        for id, values in movies_to_re_add.items()
+        if values["title"] not in config.radarr_excludes
+    }
 
     # Create a list of the Radarr IDs
     movies_to_re_add_ids = list(movies_to_re_add.keys())

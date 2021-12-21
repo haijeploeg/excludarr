@@ -49,9 +49,9 @@ def main(
     version: Optional[bool] = typer.Option(None, "--version", callback=version_callback),
 ):
     """
-    Keeping your storage happy with Excludarr. This CLI tool will exclude
-    and delete movies and series from Radarr and Sonarr if they are not on
-    the configured streaming providers.
+    Keep your storage happy with Excludarr. This CLI tool will exclude
+    and delete movies and series from Radarr and Sonarr if they are not 
+    streaming on any of the configured streaming providers.
     """
 
     # Setup the logger

@@ -4,3 +4,7 @@ class JustWatchTooManyRequests(Exception):
 
 class JustWatchNotFound(Exception):
     pass
+
+
+class JustWatchBadRequest(Exception):
+    pass

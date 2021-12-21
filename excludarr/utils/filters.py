@@ -79,25 +79,25 @@ def get_jw_providers(raw_data):
     return providers
 
 
-def get_release_date(raw_movie_data):
+def get_release_date(raw_movie_data, format="%Y-%m-%d"):
     release_cinema = raw_movie_data.get("inCinemas")
     release_digital = raw_movie_data.get("digitalRelease")
     release_physical = raw_movie_data.get("physicalRelease")
 
     if release_cinema:
         release_date = datetime.datetime.strptime(release_cinema, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            "%Y-%m-%d"
+            format
         )
     elif release_digital:
         release_date = datetime.datetime.strptime(release_digital, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            "%Y-%m-%d"
+            format
         )
     elif release_physical:
         release_date = datetime.datetime.strptime(release_physical, "%Y-%m-%dT%H:%M:%SZ").strftime(
-            "%Y-%m-%d"
+            format
         )
     else:
-        release_date = "Unknown"
+        release_date = None
 
     return release_date
 

@@ -4,7 +4,7 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from json import JSONDecodeError
 
-from .exceptions import JustWatchTooManyRequests, JustWatchNotFound
+from .exceptions import JustWatchTooManyRequests, JustWatchNotFound, JustWatchBadRequest
 
 
 class JustWatch(object):
@@ -39,7 +39,9 @@ class JustWatch(object):
 
     def _filter_api_error(self, data):
 
-        if data.status_code == 404:
+        if data.status_code == 400:
+            raise JustWatchBadRequest(data.text)
+        elif data.status_code == 404:
             raise JustWatchNotFound()
         elif data.status_code == 429:
             raise JustWatchTooManyRequests()
@@ -95,7 +97,7 @@ class JustWatch(object):
 
         return self._http_get(path)
 
-    def query_title(self, query, content_type, fast=True, result={}, page=1):
+    def query_title(self, query, content_type, fast=True, result={}, page=1, **kwargs):
         """
         Query JustWatch API to find information about a title
 
@@ -108,6 +110,8 @@ class JustWatch(object):
             content_type = content_type.split(",")
 
         json = {"query": query, "content_types": content_type}
+        if kwargs:
+            json.update(kwargs)
 
         page_result = self._http_post(path, json=json)
         result.update(page_result)
