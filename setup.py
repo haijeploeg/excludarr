@@ -29,10 +29,17 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3 :: Only",
     ],
+    license="MIT",
     keywords="excludarr, radarr, sonarr, diskspace, cleanup, management, library, streaming, netflix",
     packages=find_packages(exclude=["ez_setup", "tests*"]),
     python_requires=">=3.6, <4",
-    install_requires=["typer>=0.4.0", "loguru>=0.5.3", "rich>=v10.14.0"],
+    install_requires=[
+        "typer>=0.4.0",
+        "loguru>=0.5.3",
+        "rich>=10.16.1",
+        "requests>=2.26.0",
+        "pyyaml>=6.0",
+    ],
     entry_points={
         "console_scripts": [
             "excludarr=excludarr.main:cli",
