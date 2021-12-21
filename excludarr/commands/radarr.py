@@ -9,7 +9,6 @@ import excludarr.utils.output as output
 from excludarr.core.radarr_actions import RadarrActions
 from excludarr.utils.config import Config
 from excludarr.utils.enums import Action
-from excludarr.modules.pyradarr.exceptions import RadarrInvalidApiKey
 
 app = typer.Typer()
 

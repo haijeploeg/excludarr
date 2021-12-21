@@ -116,7 +116,7 @@ excludarr sonarr exclude -a delete -d
               ╷                                             ╷                ╷                                             ╷                                             ╷                    ╷
  Release Year │ Title                                       │ Used Diskspace │ Seasons                                     │ Episodes                                    │ Providers          │ Ended
 ╶─────────────┼─────────────────────────────────────────────┼────────────────┼─────────────────────────────────────────────┼─────────────────────────────────────────────┼────────────────────┼──────╴
- 2008         │ Breaking Bad                                │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
+ 2008         │ Breaking Bad                                │ 454.00GB       │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
               │                                             │                │ Season 5                                    │                                             │                    │
  2010         │ The Walking Dead                            │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ No
               │                                             │                │ Season 5, Season 6, Season 7, Season 8,     │                                             │                    │
@@ -128,10 +128,10 @@ excludarr sonarr exclude -a delete -d
               │                                             │                │ Season 5, Season 6                          │                                             │                    │
  2013         │ House of Cards (US)                         │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
               │                                             │                │ Season 5, Season 6                          │                                             │                    │
- 2011         │ Suits                                       │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
+ 2011         │ Suits                                       │ 30.00GB        │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
               │                                             │                │ Season 5, Season 6, Season 7, Season 8,     │                                             │                    │
               │                                             │                │ Season 9                                    │                                             │                    │
- 2013         │ Vikings                                     │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
+ 2013         │ Vikings                                     │ 100.00GB       │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ Yes
               │                                             │                │ Season 5, Season 6                          │                                             │                    │
  2014         │ The Flash (2014)                            │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │ S08E01, S08E02, S08E03, S08E04, S08E05      │ Netflix            │ No
               │                                             │                │ Season 5, Season 6, Season 7                │                                             │                    │
@@ -141,14 +141,14 @@ excludarr sonarr exclude -a delete -d
               │                                             │                │ Season 5                                    │                                             │                    │
  2013         │ Rick and Morty                              │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix            │ No
               │                                             │                │ Season 5                                    │                                             │                    │
- 2005         │ The Office (US)                             │ 0.00GB         │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix, Videoland │ Yes
+ 2005         │ The Office (US)                             │ 15.00GB        │ Season 1, Season 2, Season 3, Season 4,     │                                             │ Netflix, Videoland │ Yes
               │                                             │                │ Season 5, Season 6, Season 7, Season 8,     │                                             │                    │
               │                                             │                │ Season 9                                    │                                             │                    │
- 2010         │ Spartacus                                   │ 0.00GB         │ Season 1, Season 3                          │ S02E01, S02E02, S02E03, S02E04, S02E05,     │ Netflix            │ Yes
+ 2010         │ Spartacus                                   │ 30.00GB        │ Season 1, Season 3                          │ S02E01, S02E02, S02E03, S02E04, S02E05,     │ Netflix            │ Yes
               │                                             │                │                                             │ S02E06                                      │                    │
  2017         │ Dark                                        │ 0.00GB         │ Season 1, Season 2, Season 3                │                                             │ Netflix            │ Yes
 ╶─────────────┼─────────────────────────────────────────────┼────────────────┼─────────────────────────────────────────────┼─────────────────────────────────────────────┼────────────────────┼──────╴
-              │                        Total Used Diskspace │ 0.00GB         │                                             │                                             │                    │
+              │                        Total Used Diskspace │ 629.00GB       │                                             │                                             │                    │
               ╵                                             ╵                ╵                                             ╵                                             ╵                    ╵
 Are you sure you want to delete the listed series? [y/n] (n): y
 Succesfully deleted the series and/or changed the status of serveral seasons and episodes listed in Sonarr to not monitored!
@@ -194,3 +194,45 @@ Succesfully changed the status of the series listed in Sonarr to monitored!
 ```
 
 > NOTE: If you want to exclude any of the series listed in the table, just copy the title and paste it in your configuration file under `sonarr -> excludes`.
+
+## Docker
+To use this setup using Docker, you can use the `haijeploeg/excludarr` container. You can use the following environment variables:
+
+Variable | Default | Description
+--- | --- | ---
+GENERAL_FAST_SEARCH | true | Enable or disable fast search, can be `true` or `false`.
+GENERAL_LOCALE | en_US | The locale to use, can also be a two letter country code.
+GENERAL_PROVIDERS | Netflix | Comma seperated list of providers. e.g. `GENERAL_PROVIDERS=netflix, amazon prime video`.
+TMDB_API_KEY | - | Your TMDB API key. This setting is optional and only used in fallback scenario's.
+RADARR_URL | http://localhost:7878 | The Radarr URL.
+RADARR_API_KEY | secret | Your Radarr API Key.
+RADARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`.
+RADARR_EXCLUDE | - | Comma seperated list of movies to exclude in the process of Excludarr, e.g. `RADARR_EXCLUDE=The Matrix, F9`.
+SONARR_URL | http://localhost:8989 | The Sonarr URL.
+SONARR_API_KEY | secret | Your Sonarr API Key.
+SONARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`.
+SONARR_EXCLUDE | Comma seperated list of series to exclude in Excludarr, e.g. `SONARR_EXCLUDE=Breaking Bad, Game of Thrones`.
+
+You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
+
+```bash
+docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest radarr exclude -a delete -d -e --progress
+docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr exclude -a not-monitored
+```
+## FAQ
+
+##
+**Q:** I used the `--legacy` flag before, where can I find it in excludarr v1.0.0?
+
+**A:** Excludarr will now automatically fall back to the legacy delete option if a bulk delete is not possible.
+##
+
+**Q:** Where is the `check` command?
+
+**A:** The check command has been replaced by `re-add`.
+##
+
+**Q:** When excluding series there are no seasons or episodes displayed, what will excludarr do?
+
+**A:** When there are no seasons and episodes displayed this means that excludarr will disable monitoring of the serie if the serie is not ended yet. When a serie is ended and the action was delete, Excludarr will delete the whole serie. When a serie is ended and the action is not-monitored, Excludarr will disable monitoring of the whole serie.
+##
