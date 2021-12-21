@@ -1,6 +1,9 @@
+![License](https://img.shields.io/github/license/haijeploeg/excludarr)
 [![release](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/release.yml)
 [![Docker](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/docker.yml)
 [![PyPI version](https://badge.fury.io/py/excludarr.svg)](https://badge.fury.io/py/excludarr)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/excludarr)
+![Docker Pulls](https://img.shields.io/docker/pulls/haijeploeg/excludarr)
 
 # Excludarr
 Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completely manages you library in Sonarr and Radarr to only consist out of movies and series that are not present on any of the configured streaming providers. Excludarr can also re monitor movies and series if it is not available anymore on any of the configured streaming providers. You can also configure to delete the already downloaded files of the excluded entry to keep your storage happy! 🎉
@@ -211,7 +214,7 @@ RADARR_EXCLUDE | - | Comma seperated list of movies to exclude in the process of
 SONARR_URL | http://localhost:8989 | The Sonarr URL.
 SONARR_API_KEY | secret | Your Sonarr API Key.
 SONARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`.
-SONARR_EXCLUDE | Comma seperated list of series to exclude in Excludarr, e.g. `SONARR_EXCLUDE=Breaking Bad, Game of Thrones`.
+SONARR_EXCLUDE | - | Comma seperated list of series to exclude in Excludarr, e.g. `SONARR_EXCLUDE=Breaking Bad, Game of Thrones`.
 
 You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the `docker_example.env` for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
 
@@ -219,6 +222,7 @@ You can put those variables in a env file (e.g. `excludarr.env`) and use it in a
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest radarr exclude -a delete -d -e --progress
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr exclude -a not-monitored
 ```
+
 ## FAQ
 Below are some frequently asked questions. Please look if your question is listed below before you submit an issue.
 
@@ -236,4 +240,14 @@ Below are some frequently asked questions. Please look if your question is liste
 **Q:** When excluding series there are no seasons or episodes displayed, what will excludarr do?
 
 **A:** When there are no seasons and episodes displayed this means that excludarr will disable monitoring of the serie if the serie is not ended yet. When a serie is ended and the action was delete, Excludarr will delete the whole serie. When a serie is ended and the action is not-monitored, Excludarr will disable monitoring of the whole serie.
+##
+
+**Q:** Can I also exclude movies and series from being processed by Excludarr?
+
+**A:** Yes, by using the `exclude` setting in the configuration file. You can set the `exclude` setting under the `radarr` and `sonarr` configuration section. You can see the example `excludarr-example.yml` file in this repo.
+##
+
+**Q:** How can I know what providers I can use in the configuration file?
+
+**A:** You can list all the available providers for your specific locale using the `excludarr providers list` command. This should give you a list of all the available providers. Simply copy the full name and insert it in the configuration file.
 ##

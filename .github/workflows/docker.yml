@@ -15,10 +15,12 @@ jobs:
       - name: Prepare tags
         id: prep
         run: |
+          REPO="haijeploeg/excludarr"
           RELEASE_TAG="${GITHUB_REF#refs/*/}"
           TAGS="haijeploeg/excludarr:${GITHUB_REF#refs/*/},haijeploeg/excludarr:latest"
           echo ::set-output name=release_tag::${RELEASE_TAG}
           echo ::set-output name=tags::${TAGS}
+          echo ::set-output name=repo::${REPO}
 
       - name: Checkout
         uses: actions/checkout@v2
@@ -41,3 +43,10 @@ jobs:
         with:
           push: true
           tags: ${{ steps.prep.outputs.tags }}
+
+      - name: DockerHub Description
+        uses: peter-evans/dockerhub-description@v2
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_REPOSITORY: ${{ steps.prep.outputs.repo }}
