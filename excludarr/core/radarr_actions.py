@@ -37,7 +37,7 @@ class RadarrActions:
 
         return jw_movie_data, jw_tmdb_ids
 
-    def _find_movie(self, movie, jw_providers, fast):
+    def _find_movie(self, movie, jw_providers, fast, exclude):
         # Set the minimal base variables
         title = movie["title"]
         tmdb_id = movie["tmdbId"]
@@ -47,13 +47,20 @@ class RadarrActions:
         # Set extra payload to narrow down the search if fast is true
         jw_query_payload = {}
         if fast:
-            jw_query_payload = {
-                "page_size": 3,
-                "monetization_types": ["flatrate"],
-                "providers": providers
-            }
+            jw_query_payload.update({"page_size": 3})
+
+            if exclude:
+                jw_query_payload.update(
+                    {"monetization_types": ["flatrate"], "providers": providers}
+                )
+
             if release_year:
-                jw_query_payload.update({"release_year_from": int(release_year), "release_year_until": int(release_year)})
+                jw_query_payload.update(
+                    {
+                        "release_year_from": int(release_year),
+                        "release_year_until": int(release_year),
+                    }
+                )
 
         # Log the JustWatch API call function
         logger.debug(f"Query JustWatch API with title: {title}")
@@ -65,13 +72,11 @@ class RadarrActions:
 
             # Break if the TMBD_ID in the query of JustWatch matches the one in Radarr
             if tmdb_id in jw_tmdb_ids:
-                logger.debug(
-                    f"Found JustWatch ID: {jw_id} for {title} with TMDB ID: {tmdb_id}"
-                )
+                logger.debug(f"Found JustWatch ID: {jw_id} for {title} with TMDB ID: {tmdb_id}")
                 return jw_id, jw_movie_data
-            
+
         return None, None
-        
+
     def get_movies_to_exclude(self, providers, fast=True, disable_progress=False):
         exclude_movies = {}
 
@@ -104,7 +109,7 @@ class RadarrActions:
                 )
 
                 # Find the movie
-                jw_id, jw_movie_data = self._find_movie(movie, jw_providers, fast)
+                jw_id, jw_movie_data = self._find_movie(movie, jw_providers, fast, exclude=True)
 
                 if jw_movie_data:
                     # Get all the providers the movie is streaming on
@@ -172,7 +177,7 @@ class RadarrActions:
                 )
 
                 # Find the movie
-                jw_id, jw_movie_data = self._find_movie(movie, jw_providers, fast)
+                jw_id, jw_movie_data = self._find_movie(movie, jw_providers, fast, exclude=False)
 
                 if jw_movie_data:
                     # Get all the providers the movie is streaming on

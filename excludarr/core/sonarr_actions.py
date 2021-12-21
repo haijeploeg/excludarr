@@ -93,14 +93,14 @@ class SonarrActions:
             logger.debug("Could not find a TMDB ID")
 
         return None, None
-        
-    def _find_serie(self, serie, jw_providers, tmdb_api_key, fast):
+
+    def _find_serie(self, serie, jw_providers, tmdb_api_key, fast, exclude):
         # Set the minimal base variables
         sonarr_id = serie["id"]
         title = serie["title"]
         release_year = serie["year"]
         providers = [values["short_name"] for _, values in jw_providers.items()]
-        
+
         # Set extra payload to narrow down the search if fast is true
         jw_query_payload = {}
         if fast:
@@ -109,40 +109,43 @@ class SonarrActions:
                 "release_year_from": release_year,
                 "release_year_until": release_year,
                 "monetization_types": ["flatrate"],
-                "providers": providers
             }
+            if exclude:
+                jw_query_payload.update({"providers": providers})
 
         # Check if there is an IMDB ID, otherwise check if TMDB API is reachable to get the TMDB ID of the movie
         imdb_id = serie.get("imdbId", None)
         tvdb_id = serie.get("tvdbId", None)
         logger.debug(f"{title} has IMDB ID: {imdb_id} and TVDB_ID: {tvdb_id}")
-        
+
         # Set JustWatch return variables to None
         jw_id = None
         jw_serie_data = None
-        
+
         # Setup TMDB if there is an API key provided
         # TODO: set to init
         if tmdb_api_key:
             self.tmdb = pytmdb.TMDB(tmdb_api_key)
-        
+
         if imdb_id:
             # Try extracting the data by using the IMDB ID
-            jw_id, jw_serie_data = self._find_using_imdb_id(title, sonarr_id, imdb_id, fast, jw_query_payload)
+            jw_id, jw_serie_data = self._find_using_imdb_id(
+                title, sonarr_id, imdb_id, fast, jw_query_payload
+            )
             if not jw_serie_data and tvdb_id and tmdb_api_key:
-                jw_id, jw_serie_data = self._find_using_tvdb_id(
-                    title, sonarr_id, tvdb_id, fast
-                )
+                jw_id, jw_serie_data = self._find_using_tvdb_id(title, sonarr_id, tvdb_id, fast)
         elif tvdb_id and tmdb_api_key:
             # If the user has filled in an TMDB ID fall back to querying TMDB API using the TVDB ID
             logger.debug(f"Could not find {title} using IMDB, falling back to TMDB")
-            jw_id, jw_serie_data = self._find_using_tvdb_id(title, sonarr_id, tvdb_id, fast, jw_query_payload)
+            jw_id, jw_serie_data = self._find_using_tvdb_id(
+                title, sonarr_id, tvdb_id, fast, jw_query_payload
+            )
         else:
             # Skip this serie if no IMDB ID and TVDB ID are found
             logger.debug(
                 f"No IMDB ID provided by Sonarr and no TMDB configuration set. Skipping serie: {title}"
             )
-            
+
         return jw_id, jw_serie_data
 
     def get_series_to_exclude(
@@ -177,7 +180,9 @@ class SonarrActions:
                 episodes = self.sonarr_client.episode.get_episodes_of_serie(sonarr_id)
 
                 # Get JustWatch serie data
-                jw_id, jw_serie_data = self._find_serie(serie, jw_providers, tmdb_api_key, fast)
+                jw_id, jw_serie_data = self._find_serie(
+                    serie, jw_providers, tmdb_api_key, fast, exclude=True
+                )
 
                 # Continue if the proper JustWatch ID is found
                 if jw_serie_data:
@@ -346,8 +351,10 @@ class SonarrActions:
                 episodes = self.sonarr_client.episode.get_episodes_of_serie(sonarr_id)
 
                 # Get JustWatch serie data
-                jw_id, jw_serie_data = self._find_serie(serie, jw_providers, tmdb_api_key, fast)
-                
+                jw_id, jw_serie_data = self._find_serie(
+                    serie, jw_providers, tmdb_api_key, fast, exclude=False
+                )
+
                 # Continue if the proper JustWatch ID is found
                 if jw_serie_data:
                     logger.debug(f"Look up season data for {title}")
