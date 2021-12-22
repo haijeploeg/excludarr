@@ -28,7 +28,7 @@ To configure the application make sure that one of the following files exists:
 ./.excludarr.yml
 ```
 
-The application will read those configuration files in that order. So `./.excludarr.yml` will overwrite `/etc/excludarr/excludarr.yml`. For a full list of options and their description see [.excludarr-example.yml](.examples/.excludarr-example.yml) in this repository.
+The application will read those configuration files in that order. So `./.excludarr.yml` will overwrite `/etc/excludarr/excludarr.yml`. For a full list of options and their description see [excludarr-example.yml](.examples/excludarr-example.yml) in this repository.
 
 > NOTE: To get a full list of available providers in your country, execute `excludarr providers list` and copy the full name of the provider in your configuration.
 
@@ -216,7 +216,7 @@ SONARR_API_KEY | secret | Your Sonarr API Key.
 SONARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`.
 SONARR_EXCLUDE | - | Comma seperated list of series to exclude in Excludarr, e.g. `SONARR_EXCLUDE=Breaking Bad, Game of Thrones`.
 
-You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the [.docker_example.env](.examples/.docker_example.env) for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
+You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the [docker_example.env](.examples/docker_example.env) for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
 
 ```bash
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest radarr exclude -a delete -d -e --progress
@@ -244,7 +244,7 @@ Below are some frequently asked questions. Please look if your question is liste
 
 **Q:** Can I also exclude movies and series from being processed by Excludarr?
 
-**A:** Yes, by using the `exclude` setting in the configuration file. You can set the `exclude` setting under the `radarr` and `sonarr` configuration section. You can see the example [.docker_example.env](.examples/.docker_example.env) file in this repo.
+**A:** Yes, by using the `exclude` setting in the configuration file. You can set the `exclude` setting under the `radarr` and `sonarr` configuration section. You can see the example [excludarr-example.yml](.examples/excludarr-example.yml) file in this repo.
 ##
 
 **Q:** How can I know what providers I can use in the configuration file?
