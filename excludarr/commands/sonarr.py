@@ -143,13 +143,9 @@ def exclude(
         if confirmation:
             for sonarr_id, data in series_to_exclude.items():
                 sonarr_object = data["sonarr_object"]
-                sonarr_ended = data["ended"]
                 sonarr_total_seasons = sonarr_object["statistics"]["seasonCount"]
-                sonarr_total_monitored_seasons = len(
-                    [season for season in sonarr_object["seasons"] if season["monitored"]]
-                )
+                sonarr_full_delete = data["full_delete"]
                 seasons = [season["season"] for season in data["seasons"]]
-                total_seasons = len(seasons)
                 episodes = data["episodes"]
                 episode_ids = [
                     episode["episode_id"]
@@ -160,7 +156,7 @@ def exclude(
 
                 # Check if total seasons match with the amount of seasons to exclude and delete or
                 # change the status to not monitored for the whole serie
-                if sonarr_total_monitored_seasons == total_seasons and sonarr_ended:
+                if sonarr_full_delete:
                     if action == Action.delete:
                         sonarr.delete_serie(sonarr_id, delete_files, exclusion)
                     elif action == Action.not_monitored:
