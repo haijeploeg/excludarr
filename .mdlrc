@@ -1,1 +1,1 @@
-style '.mdl_style.rb'
+style "#{File.dirname(__FILE__)}/.mdl_style.rb"
