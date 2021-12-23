@@ -1,5 +1,30 @@
 # Excludarr Change History
 
+## 1.0.0
+
+### Added
+
+- Full rewrite of excludarr using Typer
+- Debug logging using the `--debug` parameter
+- Add JustWatch as the source of all the data
+- TMDB is not mandatory anymore, but can be used as a fallback option if the title could not be found using JustWatch.
+- Add season and individually episode support #21
+- Add re-add functionality
+- Add exclude support to exclude titles from being processed by Excludarr #24
+- Update Docker image
+- Add progress bar
+
+### Fixed
+
+- Minor bugs
+- Overall error handling
+- Automatically fallback to legacy delete functionality in Radarr. This removes the `--legacy` flag.
+- Fast searching using the JustWatch API
+
+### Removed
+
+- Cement library was removed
+
 ## 0.2.1
 
 ### Fixed
