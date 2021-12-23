@@ -69,6 +69,7 @@ def print_series_to_exclude(series, total_filesize):
         table.add_column("Episodes")
         table.add_column("Providers")
         table.add_column("Ended")
+        table.add_column("Full delete")
 
         for _, serie in series.items():
             release_year = str(serie["release_year"])
@@ -78,9 +79,12 @@ def print_series_to_exclude(series, total_filesize):
             episodes = filters.get_pretty_episodes(serie["episodes"])
             providers = serie["providers"]
             ended = filters.bool2str(serie["ended"])
+            full_delete = filters.bool2str(serie["full_delete"])
 
             # Add table rows
-            table.add_row(release_year, title, diskspace, season, episodes, providers, ended)
+            table.add_row(
+                release_year, title, diskspace, season, episodes, providers, ended, full_delete
+            )
 
 
 def print_series_to_re_add(series):
