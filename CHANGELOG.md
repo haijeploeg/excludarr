@@ -1,5 +1,15 @@
 # Excludarr Change History
 
+## 1.0.2
+
+### Added
+
+- Add Full delete column to indicate whether or not the serie is going to be fully deleted from Sonarr
+
+### Fixed
+
+- Fix UI bug when deleting series using the `-a delete` option
+
 ## 1.0.1
 
 ### Fixed
