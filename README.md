@@ -6,11 +6,13 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/haijeploeg/excludarr)
 
 # Excludarr
+
 Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completely manages you library in Sonarr and Radarr to only consist out of movies and series that are not present on any of the configured streaming providers. Excludarr can also re monitor movies and series if it is not available anymore on any of the configured streaming providers. You can also configure to delete the already downloaded files of the excluded entry to keep your storage happy! 🎉
 
 [![asciicast](https://asciinema.org/a/CfhOoY8HdrGMv0Vhp2KfjeqLR.svg)](https://asciinema.org/a/CfhOoY8HdrGMv0Vhp2KfjeqLR?autoplay=1)
 
 ## Installation
+
 Installation of excludarr can be done using pip.
 
 ```bash
@@ -18,6 +20,7 @@ pip install excludarr
 ```
 
 ## Configuration
+
 To configure the application make sure that one of the following files exists:
 
 ```bash
@@ -33,9 +36,11 @@ The application will read those configuration files in that order. So `./.exclud
 > NOTE: To get a full list of available providers in your country, execute `excludarr providers list` and copy the full name of the provider in your configuration.
 
 ## Radarr
+
 The `radarr` subcommands manages the library in your configured Radarr instance. Check `excludarr radarr --help` for a full list of options.
 
 ### Exclude
+
 To delete or disable monitoring of the movies in Radarr you can execute the `excludarr radarr exclude` command. You can determine to either delete the movie or change the status to not monitored. You can alo configure if you want to delete the associated files and to add an import exclusion to prevent future importing of the movie.
 
 By default no files are being deleted, you have to set the `-d` flag. To make the command non-interactive you can pass the `-y` flag to auto accept the confirmation question. To show the progress of the process you can pass the `--progress` flag to get a nice progress bar! Read the help page of the command carefully to adjust the command to your needs.
@@ -70,6 +75,7 @@ Succesfully deleted the movies from Radarr!
 > NOTE: If you want to exclude any of the movies listed in the table, just copy the title and paste it in your configuration file under `radarr -> excludes`.
 
 ### Re-add
+
 To re enable monitoring of not-monitored movies in Radarr that are not present anymore on any of the streaming providers, you can execute `excludarr radarr re-add`. This will lookup all movies that are not monitored anymore in Radarr and check if they are still available on the configured streaming providers. If there is no match, the status of the movie will change to monitored. This is handy if you remove a streaming provider from the configuration, or if the movie is being deleted from a streaming provider.
 
 ```bash
@@ -102,12 +108,15 @@ Succesfully changed the status of the movies listed in Radarr to monitored!
 > NOTE: If you want to exclude any of the movies listed in the table, just copy the title and paste it in your configuration file under `radarr -> excludes`.
 
 ## Sonarr
+
 The `sonarr` subcommands manages the library in your configured Sonarr instance. Check `excludarr sonarr --help` for a full list of options.
 
 ### Exclude
+
 To delete or disable monitoring of the series in Sonarr you can execute the `excludarr sonarr exclude` command. You can determine to either delete the serie or change the status to not monitored. You can alo configure if you want to delete the associated files. Excludarr will exclude the whole serie, the season(s) or individually episodes.
 
 If you use the delete action (`excludarr sonarr exclude -a delete`) it will only delete the serie if the serie is ended and all seasons are streaming on a configured streaming service. A few examples with Netflix as a streaming provider.
+
 - **Serie A** has a total of 5 seasons and has ended. If all 5 seasons are found on Netflix it will delete the serie from Sonarr.
 - **Serie B** has a total of 4 seasons and it still continueing (season 5 will be released next year). If all 4 seasons are found on Netflix it will disable the monitoring of all 4 seasons, but it will **not** delete the whole serie from Sonarr.
 - **Serie C** has a total of 6 seasons and has ended. If only 5 seasons are found on Netflix, Excludarr will disable monitoring of the 5 seasons and will **not** delete the serie from Sonarr.
@@ -160,6 +169,7 @@ Succesfully deleted the series and/or changed the status of serveral seasons and
 > NOTE: If you want to exclude any of the series listed in the table, just copy the title and paste it in your configuration file under `sonarr -> excludes`.
 
 ### Re-add
+
 To re enable monitoring of not-monitored series in Sonarr that are not present anymore on any of the streaming providers, you can execute `excludarr sonarr re-add`. This will lookup all series/seasons/episodes that are not monitored anymore in Sonarr and check if they are still available on the configured streaming providers. If there is no match, the status of the serie will change to monitored. This is handy if you remove a streaming provider from the configuration, or if the movie is being deleted from a streaming provider.
 
 ```bash
@@ -199,6 +209,7 @@ Succesfully changed the status of the series listed in Sonarr to monitored!
 > NOTE: If you want to exclude any of the series listed in the table, just copy the title and paste it in your configuration file under `sonarr -> excludes`.
 
 ## Docker
+
 To use this setup using Docker, you can use the `haijeploeg/excludarr` container. You can use the following environment variables:
 
 Variable | Default | Description
@@ -224,30 +235,37 @@ docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr 
 ```
 
 ## FAQ
+
 Below are some frequently asked questions. Please look if your question is listed below before you submit an issue.
 
 ##
+
 **Q:** I used the `--legacy` flag before, where can I find it in excludarr v1.0.0?
 
 **A:** Excludarr will now automatically fall back to the legacy delete option if a bulk delete is not possible.
+
 ##
 
 **Q:** Where is the `check` command?
 
 **A:** The check command has been replaced by `re-add`.
+
 ##
 
 **Q:** When excluding series there are no seasons or episodes displayed, what will excludarr do?
 
 **A:** When there are no seasons and episodes displayed this means that excludarr will disable monitoring of the serie if the serie is not ended yet. When a serie is ended and the action was delete, Excludarr will delete the whole serie. When a serie is ended and the action is not-monitored, Excludarr will disable monitoring of the whole serie.
+
 ##
 
 **Q:** Can I also exclude movies and series from being processed by Excludarr?
 
 **A:** Yes, by using the `exclude` setting in the configuration file. You can set the `exclude` setting under the `radarr` and `sonarr` configuration section. You can see the example [excludarr-example.yml](.examples/excludarr-example.yml) file in this repo.
+
 ##
 
 **Q:** How can I know what providers I can use in the configuration file?
 
 **A:** You can list all the available providers for your specific locale using the `excludarr providers list` command. This should give you a list of all the available providers. Simply copy the full name and insert it in the configuration file.
+
 ##
