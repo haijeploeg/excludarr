@@ -1,8 +1,9 @@
 -r requirements.txt
 
-pytest
-pytest-cov
-coverage
-twine>=1.11.0
-setuptools>=38.6.0
-wheel>=0.31.0
+pytest>=6.2.5
+pytest-cov>=3.0.0
+coverage>=6.2
+twine>=3.7.1
+setuptools>=59.7.0
+wheel>=0.37.0
+pre-commit>=2.16.0

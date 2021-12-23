@@ -5,32 +5,30 @@ import requests
 from json import JSONDecodeError
 
 from .exceptions import (
-    SonarrInvalidIdSupplied,
-    SonarrInvalidApiKey,
-    SonarrMovieNotFound,
-    SonarrValidationException,
+    RadarrInvalidIdSupplied,
+    RadarrInvalidApiKey,
+    RadarrMovieNotFound,
+    RadarrValidationException,
 )
-from .v3.serie import Serie
-from .v3.episodefile import EpisodeFile
+from .v3.movie import Movie
+from .v3.moviefile import MovieFile
 
 
-class Sonarr(object):
+class Radarr(object):
     def __init__(self, base_url, api_key, ssl_verify=True):
         # Setup base variables
         self._base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.api_url = "{}/api/v3".format(self._base_url)
 
-        # Setup SSL verification
-        self.ssl_verify = ssl_verify
-
         # Setup session
         self.session = requests.Session()
+        self.session.verify = ssl_verify
         self.session.headers.update({"X-Api-Key": self.api_key})
 
         # Register managers based on api version
-        self.serie = Serie(self)
-        self.episodefile = EpisodeFile(self)
+        self.movie = Movie(self)
+        self.moviefile = MovieFile(self)
 
     def __exit__(self, *args):
         self.session.close()
@@ -40,15 +38,15 @@ class Sonarr(object):
 
     def _filter_api_error(self, data):
         if data.status_code == 400:
-            raise SonarrInvalidIdSupplied(
+            raise RadarrInvalidIdSupplied(
                 "Invalid ID supplied! The error message is: {}".format(data.text)
             )
         elif data.status_code == 401:
-            raise SonarrInvalidApiKey("Invalid API key")
+            raise RadarrInvalidApiKey("Invalid API key")
         elif data.status_code == 404:
-            raise SonarrMovieNotFound("Serie not found")
+            raise RadarrMovieNotFound("Movie not found")
         elif data.status_code == 405:
-            raise SonarrValidationException("Validation exception")
+            raise RadarrValidationException("Validation exception")
 
         try:
             result_json = data.json()

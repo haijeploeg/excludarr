@@ -1,77 +1,72 @@
-from cement import App, TestApp, init_defaults
-from cement.core.exc import CaughtSignal
-from .core.exc import ExcludarrError
-from .controllers.base import Base
+import typer
+import sys
 
-# configuration defaults
-CONFIG = init_defaults("general")
-CONFIG["general"]["country"] = "NL"
-CONFIG["general"]["providers"] = ["netflix"]
+from typing import Optional
+from loguru import logger
 
+import excludarr.commands.radarr as radarr
+import excludarr.commands.sonarr as sonarr
+import excludarr.commands.providers as providers
 
-class Excludarr(App):
-    """Exclude Streaming (Rad/Son)arr primary application."""
-
-    class Meta:
-        label = "excludarr"
-
-        # configuration defaults
-        config_defaults = CONFIG
-        config_files = ["./.excludarr.yml"]
-
-        # call sys.exit() on close
-        exit_on_close = True
-
-        # load additional framework extensions
-        extensions = [
-            "yaml",
-            "colorlog",
-            "print",
-        ]
-
-        # configuration handler
-        config_handler = "yaml"
-
-        # configuration file suffix
-        config_file_suffix = ".yml"
-
-        # set the log handler
-        log_handler = "colorlog"
-
-        # register handlers
-        handlers = [
-            Base,
-        ]
+from excludarr import __version__
 
 
-def main():
-    with Excludarr() as app:
-        try:
-            app.run()
+app = typer.Typer()
+app.add_typer(radarr.app, name="radarr", help="Manages movies in Radarr.")
+app.add_typer(sonarr.app, name="sonarr", help="Manages TV shows, seasons and episodes in Sonarr.")
+app.add_typer(
+    providers.app, name="providers", help="List all the possible providers for your locale."
+)
 
-        except AssertionError as e:
-            print("AssertionError > %s" % e.args[0])
-            app.exit_code = 1
 
-            if app.debug is True:
-                import traceback
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"Excludarr: v{__version__}")
+        raise typer.Exit()
 
-                traceback.print_exc()
 
-        except ExcludarrError as e:
-            print("ExcludarrError > %s" % e.args[0])
-            app.exit_code = 1
+def _setup_logging(debug):
+    """
+    Setup the log formatter for Excludarr
+    """
 
-            if app.debug is True:
-                import traceback
+    log_level = "INFO"
+    if debug:
+        log_level = "DEBUG"
 
-                traceback.print_exc()
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        colorize=True,
+        format="[{time:YYYY-MM-DD HH:mm:ss}] - <level>{message}</level>",
+        level=log_level,
+    )
 
-        except CaughtSignal as e:
-            # Default Cement signals are SIGINT and SIGTERM, exit 0 (non-error)
-            print("\n%s" % e)
-            app.exit_code = 0
+
+@app.callback()
+def main(
+    debug: bool = False,
+    version: Optional[bool] = typer.Option(None, "--version", callback=version_callback),
+):
+    """
+    Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completely
+    manages you library in Sonarr and Radarr to only consist out of movies and series that
+    are not present on any of the configured streaming providers. Excludarr can also
+    re monitor movies and series if it is not available anymore on any of the configured
+    streaming providers. You can also configure to delete the already downloaded files of
+    the excluded entry to keep your storage happy!
+    """
+
+    # Setup the logger
+    _setup_logging(debug)
+
+    # Logging
+    logger.debug(f"Starting Excludarr v{__version__}")
+
+
+def cli():
+    app(prog_name="excludarr")
 
 
 if __name__ == "__main__":
-    main()
+    cli()

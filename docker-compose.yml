@@ -1,5 +1,9 @@
 ---
 
+#
+# This Docker compose file is for development purpose only
+#
+
 version: "3"
 services:
   radarr:
@@ -9,6 +13,9 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Amsterdam
+    volumes:
+        - radarr_config:/config
+        - radarr_movies:/movies:rw
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -20,6 +27,15 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Amsterdam
+    volumes:
+      - sonarr_config:/config
+      - sonarr_series:/tv:rw
     ports:
       - 8989:8989
     restart: unless-stopped
+
+volumes:
+  radarr_config:
+  radarr_movies:
+  sonarr_config:
+  sonarr_series:
