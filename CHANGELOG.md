@@ -1,5 +1,11 @@
 # Excludarr Change History
 
+## 1.0.1
+
+### Fixed
+
+- Build process to PyPi and Docker
+
 ## 1.0.0
 
 ### Added
