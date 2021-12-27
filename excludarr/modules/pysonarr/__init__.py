@@ -50,21 +50,25 @@ class Sonarr(object):
         elif data.status_code == 405:
             raise SonarrValidationException("Validation exception")
 
-        try:
-            result_json = data.json()
-        except JSONDecodeError:
-            return data.text
+        result_json = data.json()
 
         return result_json
 
-    def http_request(self, method, path, json=None, params=None):
+    def http_request(self, method, path, json=None, params=None, retries=3):
         url = self._build_url(path)
         request = requests.Request(method, url, json=json, params=params)
 
         prepped = self.session.prepare_request(request)
         result = self.session.send(prepped)
 
-        return self._filter_api_error(result)
+        try:
+            return self._filter_api_error(result)
+        except ValueError:
+            if retries != 0:
+                retries -= 1
+                self.http_request(method, path, json, params, retries)
+            else:
+                raise
 
     def http_get(self, path, params=None):
         return self.http_request("get", path, params=params)
