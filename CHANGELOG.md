@@ -1,5 +1,13 @@
 # Excludarr Change History
 
+## 1.0.3
+
+### Fixed
+
+- Fix KeyError 'title' #30
+- Fix KeyError 'Episodes' #31
+- Fix JSONDecodeError #26
+
 ## 1.0.2
 
 ### Added
