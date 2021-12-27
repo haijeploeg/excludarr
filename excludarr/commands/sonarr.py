@@ -76,7 +76,7 @@ def exclude(
             values["episodes"] = [
                 episode
                 for episode in values["episodes"]
-                if episode["monitored"] or episode["has_file"]
+                if episode.get("monitored", False) or episode.get("has_file", False)
             ]
             values["seasons"] = [
                 season for season in values["seasons"] if season["monitored"] or season["has_file"]
@@ -128,7 +128,7 @@ def exclude(
         # Calculate total filesize
         total_filesize = sum([serie["filesize"] for _, serie in series_to_exclude.items()])
 
-        # Print the s in table format
+        # Print the serie in table format
         output.print_series_to_exclude(series_to_exclude, total_filesize)
 
         # Check for confirmation
@@ -252,7 +252,7 @@ def re_add(
 
     # If there are series to exclude
     if series_to_re_add_ids:
-        # Print the s in table format
+        # Print the series in table format
         output.print_series_to_re_add(series_to_re_add)
 
         # Check for confirmation
