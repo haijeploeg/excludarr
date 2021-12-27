@@ -59,6 +59,7 @@ class SonarrActions:
                 logger.debug(f"Found JustWatch ID: {jw_id} for {title} with IMDB ID: {imdb_id}")
                 return jw_id, jw_serie_data
 
+        logger.debug(f"Could not find {title} using IMDB ID: {imdb_id}")
         return None, None
 
     def _find_using_tvdb_id(self, title, sonarr_id, tvdb_id, fast, jw_query_payload={}):
@@ -92,6 +93,7 @@ class SonarrActions:
         else:
             logger.debug("Could not find a TMDB ID")
 
+        logger.debug(f"Could not find {title} using TVDB ID: {tvdb_id}")
         return None, None
 
     def _find_serie(self, serie, jw_providers, tmdb_api_key, fast, exclude):
@@ -133,10 +135,10 @@ class SonarrActions:
                 title, sonarr_id, imdb_id, fast, jw_query_payload
             )
             if not jw_serie_data and tvdb_id and tmdb_api_key:
+                logger.debug(f"Could not find {title} using IMDB, falling back to TMDB")
                 jw_id, jw_serie_data = self._find_using_tvdb_id(title, sonarr_id, tvdb_id, fast)
         elif tvdb_id and tmdb_api_key:
             # If the user has filled in an TMDB ID fall back to querying TMDB API using the TVDB ID
-            logger.debug(f"Could not find {title} using IMDB, falling back to TMDB")
             jw_id, jw_serie_data = self._find_using_tvdb_id(
                 title, sonarr_id, tvdb_id, fast, jw_query_payload
             )
@@ -191,10 +193,12 @@ class SonarrActions:
 
                     # Loop over the seasons
                     for jw_season in jw_seasons:
-                        jw_season_title = jw_season["title"]
+                        jw_season_title = jw_season.get(
+                            "title", f"Season {jw_season['season_number']}"
+                        )
                         jw_season_id = jw_season["id"]
                         jw_season_data = self.justwatch_client.get_season(jw_season_id)
-                        jw_episodes = jw_season_data["episodes"]
+                        jw_episodes = jw_season_data.get("episodes", [])
 
                         logger.debug(f"Processing season {jw_season_title} of {title}")
 
@@ -362,10 +366,12 @@ class SonarrActions:
 
                     # Loop over the seasons
                     for jw_season in jw_seasons:
-                        jw_season_title = jw_season["title"]
+                        jw_season_title = jw_season.get(
+                            "title", f"Season {jw_season['season_number']}"
+                        )
                         jw_season_id = jw_season["id"]
                         jw_season_data = self.justwatch_client.get_season(jw_season_id)
-                        jw_episodes = jw_season_data["episodes"]
+                        jw_episodes = jw_season_data.get("episodes", [])
 
                         logger.debug(f"Processing season {jw_season_title} of {title}")
 
