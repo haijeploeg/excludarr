@@ -79,7 +79,9 @@ def exclude(
                 if episode.get("monitored", False) or episode.get("has_file", False)
             ]
             values["seasons"] = [
-                season for season in values["seasons"] if season["monitored"] or season["has_file"]
+                season
+                for season in values["seasons"]
+                if season.get("monitored", False) or season.get("has_file", False)
             ]
         else:
             values["episodes"] = [
@@ -91,7 +93,11 @@ def exclude(
 
         # Determine if serie should be deleted fully
         sonarr_total_monitored_seasons = len(
-            [season for season in values["sonarr_object"]["seasons"] if season["monitored"]]
+            [
+                season
+                for season in values["sonarr_object"]["seasons"]
+                if season.get("monitored", False)
+            ]
         )
         total_seasons = len([season["season"] for season in values["seasons"]])
 
