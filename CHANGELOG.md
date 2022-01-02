@@ -1,5 +1,11 @@
 # Excludarr Change History
 
+## 1.0.4
+
+### Fixed
+
+- Fix UnboundLocalError in radarr re-add #40
+
 ## 1.0.3
 
 ### Fixed
