@@ -203,6 +203,8 @@ def re_add(
             if not confirmation:
                 logger.warning("Aborting Excludarr because user did not confirm the question")
                 raise typer.Abort()
+        else:
+            confirmation = True
 
         if confirmation:
             # Re-add the movies
