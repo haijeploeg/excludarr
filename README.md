@@ -9,7 +9,7 @@
 
 Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completely manages you library in Sonarr and Radarr to only consist out of movies and series that are not present on any of the configured streaming providers. Excludarr can also re monitor movies and series if it is not available anymore on any of the configured streaming providers. You can also configure to delete the already downloaded files of the excluded entry to keep your storage happy! 🎉
 
-[![asciicast](https://asciinema.org/a/CfhOoY8HdrGMv0Vhp2KfjeqLR.svg)](https://asciinema.org/a/CfhOoY8HdrGMv0Vhp2KfjeqLR?autoplay=1)
+[![asciicast](https://asciinema.org/a/459503.svg)](https://asciinema.org/a/459503?autoplay=1)
 
 ## Installation
 
