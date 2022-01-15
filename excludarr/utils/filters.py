@@ -15,11 +15,24 @@ def bool2str(value):
 
 def get_tmdb_ids(external_ids):
     try:
-        tmdb_ids = [
-            int(x["external_id"])
+        all_tmdb_ids = [
+            x["external_id"]
             for x in external_ids
             if x["provider"] == "tmdb_latest" or x["provider"] == "tmdb"
         ]
+        tmdb_ids = [
+            int(x)
+            for x in all_tmdb_ids
+            if x.isnumeric()
+        ]
+        bad_tmdb_ids = [
+            x
+            for x in all_tmdb_ids
+            if not x.isnumeric()
+        ]
+        if (len(bad_tmdb_ids) > 0):
+            print("BAD TMDB IDS:",bad_tmdb_ids)
+
         tmdb_ids = list(set(tmdb_ids))
     except (KeyError, IndexError):
         tmdb_ids = []
