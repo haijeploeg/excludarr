@@ -18,14 +18,13 @@ def get_tmdb_ids(external_ids):
         tmdb_ids = [
             int(x["external_id"])
             for x in external_ids
-            if x["provider"] == "tmdb_latest" or x["provider"] == "tmdb"
+            if (x["provider"] == "tmdb_latest" or x["provider"] == "tmdb") and x["external_id"].isnumeric()
         ]
         tmdb_ids = list(set(tmdb_ids))
     except (KeyError, IndexError):
         tmdb_ids = []
 
     return tmdb_ids
-
 
 def get_imdb_ids(external_ids):
     try:
