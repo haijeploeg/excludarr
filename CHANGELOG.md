@@ -1,5 +1,11 @@
 # Excludarr Change History
 
+## 1.0.5
+
+### Fixed
+
+- Fix error invalid literal for int() #44
+
 ## 1.0.4
 
 ### Fixed
