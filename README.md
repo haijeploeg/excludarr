@@ -226,6 +226,7 @@ SONARR_URL | http://localhost:8989 | The Sonarr URL.
 SONARR_API_KEY | secret | Your Sonarr API Key.
 SONARR_VERIFY_SSL | false | To enable SSL verify, can be `true` or `false`.
 SONARR_EXCLUDE | - | Comma seperated list of series to exclude in Excludarr, e.g. `SONARR_EXCLUDE=Breaking Bad, Game of Thrones`.
+CRON_MODE | false | Wether to run the docker container using cron. This is useful for docker-compose.
 
 You can put those variables in a env file (e.g. `excludarr.env`) and use it in a command (recommended way). Look the [docker_example.env](.examples/docker_example.env) for an example. If you have set your variables properly, you can execute excludarr in docker by just adding the command and paramaters at the end of the docker command. Example:
 
@@ -233,6 +234,47 @@ You can put those variables in a env file (e.g. `excludarr.env`) and use it in a
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest radarr exclude -a delete -d -e --progress
 docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr exclude -a not-monitored
 ```
+
+### Docker compose
+
+Excludarr can run in cron mode using docker-compose. Using this method the container keeps running and wakes up when you want to run a scheduled command. To use this method you can create a [crontab](.examples/crontab) file and mount it to `/etc/excludarr/crontab` in the container. Make sure you run the command unattended (with the `-y` flag!)
+
+```bash
+$ cat crontab
+
+# minute    hour    day   month   weekday   command
+0           1       *     *       *         excludarr sonarr -a delete -d -e -y
+0           2       *     *       *         excludarr radarr -a delete -d -e -y
+```
+
+Your docker-compose file can look like [this](.examples/docker-compose-example.yml). Make sure you set the `CRON_MODE` environment setting!
+
+```bash
+$ cat docker-compose.yml
+
+version: "3"
+services:
+  excludarr:
+    image: haijeploeg/excludarr
+    container_name: excludarr
+    environment:
+      - GENERAL_FAST_SEARCH=true
+      - GENERAL_LOCALE=en_NL
+      - GENERAL_PROVIDERS=netflix, amazon prime video
+      - RADARR_URL=http://radarr.example.com:7878
+      - RADARR_API_KEY=secret
+      - RADARR_VERIFY_SSL=false
+      - SONARR_URL=http://sonarr.example.com:8989
+      - SONARR_API_KEY=secret
+      - SONARR_VERIFY_SSL=false
+      - SONARR_EXCLUDE="Queen of the South, Breaking Bad"
+      - CRON_MODE=true
+    volumes:
+      - ./crontab:/etc/excludarr/crontab
+    restart: unless-stopped
+```
+
+With the above configuration the container will execute `excludarr sonarr -a delete -d -e -y` every day at 01:00 and `excludarr radarr -a delete -d -e -y` every day at 02:00.
 
 ## FAQ
 
