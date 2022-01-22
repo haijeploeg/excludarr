@@ -1,5 +1,12 @@
 # Excludarr Change History
 
+## 1.0.6
+
+### Added
+
+- Add Docker ARM64 container. #45
+- Add cron mode to run the container using cron. Useful for docker-compose. #32
+
 ## 1.0.5
 
 ### Fixed
