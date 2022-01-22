@@ -11,6 +11,12 @@ Excludarr is a CLI that interacts with Radarr and Sonarr instances. It completel
 
 [![asciicast](https://asciinema.org/a/459503.svg)](https://asciinema.org/a/459503?autoplay=1)
 
+## Prerequisites
+
+- Python 3.6 or Docker
+- If you have Sonarr: Sonarr V3 (version 2 is not working!)
+- If you have Radarr: Radarr V3
+
 ## Installation
 
 Installation of excludarr can be done using pip.
