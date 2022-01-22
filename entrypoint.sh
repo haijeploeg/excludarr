@@ -12,6 +12,7 @@ sonarr_url="${SONARR_URL:-http://localhost:8989}"
 sonarr_api_key="${SONARR_API_KEY:-secret}"
 sonarr_verify_ssl="${SONARR_VERIFY_SSL:-false}"
 sonarr_exclude="[${SONARR_EXCLUDE:-''}]"
+cron_mode="${CRON_MODE:-false}"
 
 
 cat << EOF > /etc/excludarr/excludarr.yml
@@ -41,4 +42,14 @@ tmdb:
 EOF
 fi
 
-excludarr $@
+if [ "$cron_mode" = true ]; then
+    if test -f "/etc/excludarr/crontab"; then
+        cp /etc/excludarr/crontab /var/spool/cron/crontabs/root
+        crond -l 8 -f
+    else
+        echo "No crontab file mounted! Please mount a valid crontab file at /etc/excludarr/crontab before running in cron mode!"
+        exit 1
+    fi
+else
+    excludarr $@
+fi
