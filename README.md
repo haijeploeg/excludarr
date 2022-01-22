@@ -236,14 +236,15 @@ docker run -it --rm --env-file excludarr.env haijeploeg/excludarr:latest sonarr 
 ```
 
 ### Docker compose
+
 Excludarr can run in cron mode using docker-compose. Using this method the container keeps running and wakes up when you want to run a scheduled command. To use this method you can create a [crontab](.examples/crontab) file and mount it to `/etc/excludarr/crontab` in the container. Make sure you run the command unattended (with the `-y` flag!)
 
 ```bash
 $ cat crontab
 
 # minute    hour    day   month   weekday   command
-0           1	      *	    *	      *	        excludarr sonarr -a delete -d -e -y
-0           2	      *	    *	      *	        excludarr radarr -a delete -d -e -y
+0           1       *     *       *         excludarr sonarr -a delete -d -e -y
+0           2       *     *       *         excludarr radarr -a delete -d -e -y
 ```
 
 Your docker-compose file can look like [this](.examples/docker-compose-example.yml). Make sure you set the `CRON_MODE` environment setting!
