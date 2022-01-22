@@ -43,3 +43,6 @@ jobs:
         with:
           push: true
           tags: ${{ steps.prep.outputs.tags }}
+          platforms: |-
+              linux/amd64
+              linux/arm64
