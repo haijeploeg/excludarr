@@ -249,8 +249,8 @@ Excludarr can run in cron mode using docker-compose. Using this method the conta
 $ cat crontab
 
 # minute    hour    day   month   weekday   command
-0           1       *     *       *         excludarr sonarr -a delete -d -e -y
-0           2       *     *       *         excludarr radarr -a delete -d -e -y
+0           1       *     *       *         excludarr sonarr exclude -a delete -d -e -y
+0           2       *     *       *         excludarr radarr exclude -a delete -d -e -y
 ```
 
 Your docker-compose file can look like [this](.examples/docker-compose-example.yml). Make sure you set the `CRON_MODE` environment setting!
