@@ -280,7 +280,7 @@ services:
     restart: unless-stopped
 ```
 
-With the above configuration the container will execute `excludarr sonarr -a delete -d -e -y` every day at 01:00 and `excludarr radarr -a delete -d -e -y` every day at 02:00.
+With the above configuration the container will execute `excludarr sonarr exclude -a delete -d -e -y` every day at 01:00 and `excludarr radarr exclude -a delete -d -e -y` every day at 02:00.
 
 ## FAQ
 
@@ -317,3 +317,10 @@ Below are some frequently asked questions. Please look if your question is liste
 **A:** You can list all the available providers for your specific locale using the `excludarr providers list` command. This should give you a list of all the available providers. Simply copy the full name and insert it in the configuration file.
 
 ##
+
+**Q:** Does excludarr still support Sonarr V2?
+
+**A:** No, Sonarr V2 is EOL (End Of Life) and therefor not supported by Excludarr. Please upgrade to Sonarr V3: https://forums.sonarr.tv/t/v3-is-now-officially-stable-v2-is-eol/27858
+
+##
+
