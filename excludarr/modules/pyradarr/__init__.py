@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import requests
+import time
 
 from .exceptions import (
     RadarrInvalidIdSupplied,
@@ -62,6 +63,7 @@ class Radarr(object):
         except ValueError:
             if retries != 0:
                 retries -= 1
+                time.sleep(5)
                 self.http_request(method, path, json, params, retries)
             else:
                 raise
