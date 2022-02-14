@@ -320,7 +320,6 @@ Below are some frequently asked questions. Please look if your question is liste
 
 **Q:** Does excludarr still support Sonarr V2?
 
-**A:** No, Sonarr V2 is EOL (End Of Life) and therefor not supported by Excludarr. Please upgrade to Sonarr V3: https://forums.sonarr.tv/t/v3-is-now-officially-stable-v2-is-eol/27858
+**A:** No, Sonarr V2 is EOL (End Of Life) and therefor not supported by Excludarr. Please upgrade to Sonarr V3 by reading the [upgrade guide](https://forums.sonarr.tv/t/v3-is-now-officially-stable-v2-is-eol/27858)
 
 ##
-
