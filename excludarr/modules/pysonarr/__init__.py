@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import requests
-
-from json import JSONDecodeError
+import time
 
 from .exceptions import (
     SonarrInvalidIdSupplied,
@@ -66,6 +65,7 @@ class Sonarr(object):
         except ValueError:
             if retries != 0:
                 retries -= 1
+                time.sleep(5)
                 self.http_request(method, path, json, params, retries)
             else:
                 raise
