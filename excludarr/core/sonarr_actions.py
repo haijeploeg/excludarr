@@ -1,7 +1,7 @@
 from loguru import logger
 from rich.progress import Progress
+from pyarr import SonarrAPI
 
-import excludarr.modules.pysonarr as pysonarr
 import excludarr.modules.pytmdb as pytmdb
 import excludarr.utils.filters as filters
 
@@ -10,9 +10,9 @@ from excludarr.modules.justwatch.exceptions import JustWatchNotFound, JustWatchT
 
 
 class SonarrActions:
-    def __init__(self, url, api_key, locale, verify_ssl=False):
+    def __init__(self, url, api_key, locale):
         logger.debug(f"Initializing PySonarr")
-        self.sonarr_client = pysonarr.Sonarr(url, api_key, verify_ssl)
+        self.sonarr_client = SonarrAPI(url, api_key)
 
         logger.debug(f"Initializing JustWatch API with locale: {locale}")
         self.justwatch_client = JustWatch(locale)
@@ -157,7 +157,7 @@ class SonarrActions:
 
         # Get all series listed in Sonarr
         logger.debug("Getting all the series from Sonarr")
-        sonarr_series = self.sonarr_client.serie.get_all_series()
+        sonarr_series = self.sonarr_client.get_series()
 
         # Get the providers listed for the configured locale from JustWatch
         # and filter it with the given providers. This will ensure only the correct
@@ -171,6 +171,9 @@ class SonarrActions:
         progress = Progress(disable=disable_progress)
         with progress:
             for serie in progress.track(sonarr_series):
+                from pprint import pprint
+
+                pprint(serie)
                 # Set the minimal base variables
                 sonarr_id = serie["id"]
                 title = serie["title"]
@@ -179,7 +182,7 @@ class SonarrActions:
                 ended = serie["ended"]
 
                 # Get episodes of the serie
-                episodes = self.sonarr_client.episode.get_episodes_of_serie(sonarr_id)
+                episodes = self.sonarr_client.get_episodes_by_series_id(sonarr_id)
 
                 # Get JustWatch serie data
                 jw_id, jw_serie_data = self._find_serie(
@@ -331,7 +334,7 @@ class SonarrActions:
 
         # Get all series listed in Sonarr
         logger.debug("Getting all the series from Sonarr")
-        sonarr_series = self.sonarr_client.serie.get_all_series()
+        sonarr_series = self.sonarr_client.get_series()
 
         # Get the providers listed for the configured locale from JustWatch
         # and filter it with the given providers. This will ensure only the correct
@@ -352,7 +355,7 @@ class SonarrActions:
                 ended = serie["ended"]
 
                 # Get episodes of the serie
-                episodes = self.sonarr_client.episode.get_episodes_of_serie(sonarr_id)
+                episodes = self.sonarr_client.get_episodes_by_series_id(sonarr_id)
 
                 # Get JustWatch serie data
                 jw_id, jw_serie_data = self._find_serie(
@@ -495,9 +498,7 @@ class SonarrActions:
 
         try:
             logger.debug(f"Deleting serie with Sonarr ID: {id}")
-            self.sonarr_client.serie.delete_serie(
-                id, delete_files=delete_files, add_import_exclusion=add_import_exclusion
-            )
+            self.sonarr_client.del_series(id, delete_files=delete_files)
         except Exception as e:
             logger.error(e)
             logger.error(
@@ -510,7 +511,7 @@ class SonarrActions:
         for episode_file in episode_file_ids:
             try:
                 logger.debug(f"Deleting episode ID: {episode_file} for serie with Sonarr ID: {id}")
-                self.sonarr_client.episodefile.delete_episodefile(episode_file)
+                self.sonarr_client.del_episode_file(episode_file)
             except Exception as e:
                 logger.error(e)
                 logger.error(
@@ -524,7 +525,7 @@ class SonarrActions:
 
         try:
             logger.debug(f"Updating serie with Sonarr ID: {id}")
-            self.sonarr_client.serie.update_serie(sonarr_object)
+            self.sonarr_client.upd_series(sonarr_object)
         except Exception as e:
             logger.error(e)
             logger.error(
@@ -538,7 +539,7 @@ class SonarrActions:
 
         try:
             logger.debug(f"Updating serie with Sonarr ID: {id}")
-            self.sonarr_client.serie.update_serie(updated_sonarr_object)
+            self.sonarr_client.upd_series(updated_sonarr_object)
         except Exception as e:
             logger.error(e)
             logger.error(
@@ -553,13 +554,13 @@ class SonarrActions:
                 logger.debug(
                     f"Get details of episode with ID: {episode_id} for serie with Sonarr ID: {id}"
                 )
-                episode_object = self.sonarr_client.episode.get_episode(episode_id)
+                episode_object = self.sonarr_client.get_episode_by_episode_id(episode_id)
                 episode_object["monitored"] = False
 
                 logger.debug(
                     f"Updating episode with ID: {episode_id} for serie with Sonarr ID: {id}"
                 )
-                self.sonarr_client.episode.update_episode(episode_id, episode_object)
+                self.sonarr_client.upd_episode(episode_id, episode_object)
             except Exception as e:
                 logger.error(e)
                 logger.error(
@@ -573,7 +574,7 @@ class SonarrActions:
 
         try:
             logger.debug(f"Updating serie with Sonarr ID: {id}")
-            self.sonarr_client.serie.update_serie(sonarr_object)
+            self.sonarr_client.upd_series(sonarr_object)
         except Exception as e:
             logger.error(e)
             logger.error(
@@ -587,7 +588,7 @@ class SonarrActions:
 
         try:
             logger.debug(f"Updating serie with Sonarr ID: {id}")
-            self.sonarr_client.serie.update_serie(updated_sonarr_object)
+            self.sonarr_client.upd_series(updated_sonarr_object)
         except Exception as e:
             logger.error(e)
             logger.error(
@@ -602,13 +603,13 @@ class SonarrActions:
                 logger.debug(
                     f"Get details of episode with ID: {episode_id} for serie with Sonarr ID: {id}"
                 )
-                episode_object = self.sonarr_client.episode.get_episode(episode_id)
+                episode_object = self.sonarr_client.get_episode_by_episode_id(episode_id)
                 episode_object["monitored"] = True
 
                 logger.debug(
                     f"Updating episode with ID: {episode_id} for serie with Sonarr ID: {id}"
                 )
-                self.sonarr_client.episode.update_episode(episode_id, episode_object)
+                self.sonarr_client.upd_episode(episode_object)
             except Exception as e:
                 logger.error(e)
                 logger.error(
