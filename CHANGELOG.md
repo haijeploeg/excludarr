@@ -1,5 +1,11 @@
 # Excludarr Change History
 
+## 1.0.7
+
+### Fixed
+
+- Fix several errors in PyRadarr and PySonarr modules by replacing them by PyArr. #64
+
 ## 1.0.6
 
 ### Added
