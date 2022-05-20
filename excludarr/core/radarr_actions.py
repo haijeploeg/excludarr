@@ -6,7 +6,6 @@ import excludarr.utils.filters as filters
 
 from excludarr.modules.justwatch import JustWatch
 from excludarr.modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
-from excludarr.modules.pyradarr.exceptions import RadarrMovieNotFound
 
 
 class RadarrActions:
@@ -214,19 +213,21 @@ class RadarrActions:
                     "addImportExclusion": add_import_exclusion,
                 }
             )
-        except RadarrMovieNotFound:
+        except Exception:
             logger.warning("Bulk delete failed, falling back to deleting each movie individually")
-            for id in ids:
-                logger.debug(f"Deleting movie with Radarr ID: {id}")
 
-                self.radarr_client.del_movie(
-                    id, delete_files=delete_files, add_exclusion=add_import_exclusion
+            try:
+                for id in ids:
+                    logger.debug(f"Deleting movie with Radarr ID: {id}")
+
+                    self.radarr_client.del_movie(
+                        id, delete_files=delete_files, add_exclusion=add_import_exclusion
+                    )
+            except Exception as e:
+                logger.error(e)
+                logger.error(
+                    f"Something went wrong with deleting the movies from Radarr, check the configuration or try --debug for more information"
                 )
-        except Exception as e:
-            logger.error(e)
-            logger.error(
-                f"Something went wrong with deleting the movies from Radarr, check the configuration or try --debug for more information"
-            )
 
     def disable_monitored(self, movies):
         logger.debug("Starting the process of changing the status to not monitored")
@@ -249,7 +250,7 @@ class RadarrActions:
         for id in ids:
             logger.debug(f"Checking if movie with Radarr ID: {id} has files")
             moviefiles = self.radarr_client.get_movie_files_by_movie_id(id)
-            print(moviefiles)
+
             for moviefile in moviefiles:
                 logger.debug(f"Deleting files for movie with Radarr ID: {id}")
-                print(self.radarr_client.del_movie_file(moviefile["id"]))
+                self.radarr_client.del_movie_file(moviefile["id"])

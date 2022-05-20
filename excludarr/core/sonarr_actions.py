@@ -9,10 +9,19 @@ from excludarr.modules.justwatch import JustWatch
 from excludarr.modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
 
 
+def upd_episode(self, id, data):
+    path = f"episode/{id}"
+    return self.request_put(path, self.ver_uri, data=data)
+
+
+# Patch the upd_episode endpoint
+SonarrAPI.upd_episode = upd_episode
+
+
 class SonarrActions:
     def __init__(self, url, api_key, locale):
         logger.debug(f"Initializing PySonarr")
-        self.sonarr_client = SonarrAPI(url, api_key)
+        self.sonarr_client = SonarrAPI(url, api_key, ver_uri="/v3")
 
         logger.debug(f"Initializing JustWatch API with locale: {locale}")
         self.justwatch_client = JustWatch(locale)
@@ -171,9 +180,6 @@ class SonarrActions:
         progress = Progress(disable=disable_progress)
         with progress:
             for serie in progress.track(sonarr_series):
-                from pprint import pprint
-
-                pprint(serie)
                 # Set the minimal base variables
                 sonarr_id = serie["id"]
                 title = serie["title"]
@@ -609,7 +615,7 @@ class SonarrActions:
                 logger.debug(
                     f"Updating episode with ID: {episode_id} for serie with Sonarr ID: {id}"
                 )
-                self.sonarr_client.upd_episode(episode_object)
+                self.sonarr_client.upd_episode(episode_id, episode_object)
             except Exception as e:
                 logger.error(e)
                 logger.error(
