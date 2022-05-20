@@ -1,19 +1,17 @@
-from platform import release
 from loguru import logger
 from rich.progress import Progress
+from pyarr import RadarrAPI
 
-import excludarr.modules.pyradarr as pyradarr
 import excludarr.utils.filters as filters
 
 from excludarr.modules.justwatch import JustWatch
 from excludarr.modules.justwatch.exceptions import JustWatchNotFound, JustWatchTooManyRequests
-from excludarr.modules.pyradarr.exceptions import RadarrMovieNotFound
 
 
 class RadarrActions:
-    def __init__(self, url, api_key, locale, verify_ssl=False):
+    def __init__(self, url, api_key, locale):
         logger.debug(f"Initializing PyRadarr")
-        self.radarr_client = pyradarr.Radarr(url, api_key, verify_ssl)
+        self.radarr_client = RadarrAPI(url, api_key)
 
         logger.debug(f"Initializing JustWatch API with locale: {locale}")
         self.justwatch_client = JustWatch(locale)
@@ -82,7 +80,7 @@ class RadarrActions:
 
         # Get all movies listed in Radarr
         logger.debug("Getting all the movies from Radarr")
-        radarr_movies = self.radarr_client.movie.get_all_movies()
+        radarr_movies = self.radarr_client.get_movie()
 
         # Get the providers listed for the configured locale from JustWatch
         # and filter it with the given providers. This will ensure only the correct
@@ -150,7 +148,7 @@ class RadarrActions:
 
         # Get all movies listed in Radarr and filter it to only include not monitored movies
         logger.debug("Getting all the movies from Radarr")
-        radarr_movies = self.radarr_client.movie.get_all_movies()
+        radarr_movies = self.radarr_client.get_movie()
         radarr_not_monitored_movies = [movie for movie in radarr_movies if not movie["monitored"]]
 
         # Get the providers listed for the configured locale from JustWatch
@@ -208,22 +206,28 @@ class RadarrActions:
         try:
             logger.debug("Trying to bulk delete all movies at once")
 
-            self.radarr_client.movie.delete_movies(
-                ids, delete_files=delete_files, add_import_exclusion=add_import_exclusion
+            self.radarr_client.del_movies(
+                {
+                    "movieIds": ids,
+                    "deleteFiles": delete_files,
+                    "addImportExclusion": add_import_exclusion,
+                }
             )
-        except RadarrMovieNotFound:
+        except Exception:
             logger.warning("Bulk delete failed, falling back to deleting each movie individually")
-            for id in ids:
-                logger.debug(f"Deleting movie with Radarr ID: {id}")
 
-                self.radarr_client.movie.delete_movie(
-                    id, delete_files=delete_files, add_import_exclusion=add_import_exclusion
+            try:
+                for id in ids:
+                    logger.debug(f"Deleting movie with Radarr ID: {id}")
+
+                    self.radarr_client.del_movie(
+                        id, delete_files=delete_files, add_exclusion=add_import_exclusion
+                    )
+            except Exception as e:
+                logger.error(e)
+                logger.error(
+                    f"Something went wrong with deleting the movies from Radarr, check the configuration or try --debug for more information"
                 )
-        except Exception as e:
-            logger.error(e)
-            logger.error(
-                f"Something went wrong with deleting the movies from Radarr, check the configuration or try --debug for more information"
-            )
 
     def disable_monitored(self, movies):
         logger.debug("Starting the process of changing the status to not monitored")
@@ -231,7 +235,7 @@ class RadarrActions:
             movie.update({"monitored": False})
 
             logger.debug(f"Change monitored to False for movie with Radarr ID: {movie['id']}")
-            self.radarr_client.movie.update_movie(movie)
+            self.radarr_client.upd_movie(movie)
 
     def enable_monitored(self, movies):
         logger.debug("Starting the process of changing the status to monitored")
@@ -239,14 +243,14 @@ class RadarrActions:
             movie.update({"monitored": True})
 
             logger.debug(f"Change monitored to True for movie with Radarr ID: {movie['id']}")
-            self.radarr_client.movie.update_movie(movie)
+            self.radarr_client.upd_movie(movie)
 
     def delete_files(self, ids):
         logger.debug("Starting the process of deleting the files")
         for id in ids:
             logger.debug(f"Checking if movie with Radarr ID: {id} has files")
-            moviefiles = self.radarr_client.moviefile.get_moviefiles(id)
+            moviefiles = self.radarr_client.get_movie_files_by_movie_id(id)
 
             for moviefile in moviefiles:
                 logger.debug(f"Deleting files for movie with Radarr ID: {id}")
-                self.radarr_client.moviefile.delete_moviefile(moviefile["id"])
+                self.radarr_client.del_movie_file(moviefile["id"])

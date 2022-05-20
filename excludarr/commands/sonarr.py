@@ -62,9 +62,7 @@ def exclude(
         locale = config.locale
 
     # Setup Sonarr Actions to control the different tasks
-    sonarr = SonarrActions(
-        config.sonarr_url, config.sonarr_api_key, locale, config.sonarr_verify_ssl
-    )
+    sonarr = SonarrActions(config.sonarr_url, config.sonarr_api_key, locale)
 
     series_to_exclude = sonarr.get_series_to_exclude(
         providers, config.fast_search, disable_progress, tmdb_api_key=config.tmdb_api_key
@@ -229,9 +227,7 @@ def re_add(
         locale = config.locale
 
     # Setup Sonarr Actions to control the different tasks
-    sonarr = SonarrActions(
-        config.sonarr_url, config.sonarr_api_key, locale, config.sonarr_verify_ssl
-    )
+    sonarr = SonarrActions(config.sonarr_url, config.sonarr_api_key, locale)
 
     series_to_re_add = sonarr.get_series_to_re_add(
         providers, config.fast_search, disable_progress, tmdb_api_key=config.tmdb_api_key

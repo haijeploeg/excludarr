@@ -34,11 +34,12 @@ setup(
     packages=find_packages(exclude=["ez_setup", "tests*"]),
     python_requires=">=3.6, <4",
     install_requires=[
-        "typer>=0.4.0",
-        "loguru>=0.5.3",
-        "rich>=10.16.1",
-        "requests>=2.26.0",
-        "pyyaml>=6.0",
+        "typer>=0.4.1",
+        "loguru>=0.6.0",
+        "rich>=12.4.1",
+        "requests>=2.27.1",
+        "PyYAML>=6.0",
+        "pyarr>=3.1.3",
     ],
     entry_points={
         "console_scripts": [

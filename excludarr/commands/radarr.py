@@ -78,9 +78,7 @@ def exclude(
         locale = config.locale
 
     # Setup Radarr Actions to control the different tasks
-    radarr = RadarrActions(
-        config.radarr_url, config.radarr_api_key, locale, config.radarr_verify_ssl
-    )
+    radarr = RadarrActions(config.radarr_url, config.radarr_api_key, locale)
 
     # Get the movies to exclude and exclude the movies that are in the exclude list
     movies_to_exclude = radarr.get_movies_to_exclude(
@@ -177,9 +175,7 @@ def re_add(
         locale = config.locale
 
     # Setup Radarr Actions to control the different tasks
-    radarr = RadarrActions(
-        config.radarr_url, config.radarr_api_key, locale, config.radarr_verify_ssl
-    )
+    radarr = RadarrActions(config.radarr_url, config.radarr_api_key, locale)
 
     # Get the movies that should be re monitored
     movies_to_re_add = radarr.get_movies_to_re_add(providers, config.fast_search, disable_progress)
