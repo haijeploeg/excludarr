@@ -1,17 +1,21 @@
-FROM python:3.10-alpine
+FROM python:3.9
 
-ENV PS1="\[\e[0;33m\]|> excludarr <| \[\e[1;35m\]\W\[\e[0m\] \[\e[0m\]# "
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-WORKDIR /src
-COPY . /src
-# hadolint ignore=DL3018
-RUN apk add --no-cache bash \
-    && pip install --no-cache-dir -r requirements.txt \
-    && python setup.py install \
-    && mkdir /etc/excludarr
+COPY requirements.txt .
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# install python dependencies
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /
-ENTRYPOINT ["/entrypoint.sh"]
+COPY . .
+
+# running migrations
+RUN python manage.py makemigrations
+RUN python manage.py migrate
+RUN python manage.py collectstatic --noinput
+
+# gunicorn
+CMD ["gunicorn", "--config", "gunicorn-cfg.py", "core.wsgi"]
