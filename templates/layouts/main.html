@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+    
+    <!-- Static assets-->
+    {% load static %}
+    
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        
+        <!-- Favicon icon -->
+        <link rel="shortcut icon" type="image/x-icon" href="{% static 'assets/favicon/favicon.ico' %}">
+        
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="{% static 'assets/css/theme.css' %}">
+        <link rel="stylesheet" href="{% static 'assets/css/custom.css' %}">
+        
+        <title>Excludarr</title>
+    </head>
+    <body class="bg-light">
+        <div id="db-wrapper">
+            {% include 'includes/navbar.html' %}
+            <div id="page-content">
+                {% block content %}{% endblock content %}
+            </div>
+        </div>
+        
+        <!-- Include default javascript -->
+        {% include 'includes/scripts.html' %}
+        
+        <!-- Page Specific JS File -->
+        {% block javascripts %}{% endblock javascripts %}
+
+    </body>
+</html>

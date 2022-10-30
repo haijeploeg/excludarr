@@ -1,0 +1,58 @@
+{% load static %} 
+<!-- Sidebar -->
+<nav class="navbar-vertical navbar">
+    <div class="nav-scroller">
+        <!-- Brand logo -->
+        <a class="navbar-brand" href="{% url 'movies' %}">
+            <img src="{% static 'assets/logo/logo-white-transparent.svg' %}" alt=""/>
+        </a>
+        <!-- Navbar nav -->
+        <ul class="navbar-nav flex-column" id="sideNavbar">
+          
+            <!-- Nav item -->
+            <li class="nav-item">
+              <div class="navbar-heading">Dashboard</div>
+            </li>
+
+            <!-- Nav item -->
+            {% url 'movies' as url %}
+            <li class="nav-item">
+              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'movies' %}">
+                <i data-feather="film" class="nav-icon icon-xs me-2"></i> Movies
+              </a>
+            </li>
+            
+            <!-- Nav item -->
+            {% url 'series' as url %}
+            <li class="nav-item">
+              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'series' %}">
+                <i data-feather="tv" class="nav-icon icon-xs me-2"></i>Series 
+              </a>
+            </li>
+            
+            <!-- Nav item -->
+            {% url 'settings' as url %}
+            <li class="nav-item">
+              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'settings' %}">
+                <i data-feather="settings" class="nav-icon icon-xs me-2"></i>Settings 
+              </a>
+            </li>
+            
+            <!-- Nav item -->
+            <li class="nav-item">
+              <a class="nav-link has-arrow collapsed" href="#!" data-bs-toggle="collapse" data-bs-target="#navSystem" aria-expanded="false" aria-controls="navSystem">
+                <i data-feather="monitor" class="nav-icon icon-xs me-2">
+                </i>System
+              </a>
+              <div id="navSystem" class="collapse" data-bs-parent="#sideNavbar">
+                <ul class="nav flex-column">
+                  <li class="nav-item">
+                    <a class="nav-link" href="@@webRoot/pages/sign-in.html">Events</a>
+                  </li>
+                </ul>
+              </div>
+            </li>
+
+        </ul>
+    </div>
+</nav>
