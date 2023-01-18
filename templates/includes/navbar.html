@@ -1,58 +1,90 @@
-{% load static %} 
-<!-- Sidebar -->
-<nav class="navbar-vertical navbar">
-    <div class="nav-scroller">
-        <!-- Brand logo -->
-        <a class="navbar-brand" href="{% url 'movies' %}">
-            <img src="{% static 'assets/logo/logo-white-transparent.svg' %}" alt=""/>
-        </a>
-        <!-- Navbar nav -->
-        <ul class="navbar-nav flex-column" id="sideNavbar">
-          
-            <!-- Nav item -->
-            <li class="nav-item">
-              <div class="navbar-heading">Dashboard</div>
-            </li>
+{% load static %}
+{% with url_name=request.resolver_match.url_name %}
 
-            <!-- Nav item -->
-            {% url 'movies' as url %}
-            <li class="nav-item">
-              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'movies' %}">
-                <i data-feather="film" class="nav-icon icon-xs me-2"></i> Movies
-              </a>
-            </li>
-            
-            <!-- Nav item -->
-            {% url 'series' as url %}
-            <li class="nav-item">
-              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'series' %}">
-                <i data-feather="tv" class="nav-icon icon-xs me-2"></i>Series 
-              </a>
-            </li>
-            
-            <!-- Nav item -->
-            {% url 'settings' as url %}
-            <li class="nav-item">
-              <a class="nav-link has-arrow {% if request.path == url %}active{% endif %}" href="{% url 'settings' %}">
-                <i data-feather="settings" class="nav-icon icon-xs me-2"></i>Settings 
-              </a>
-            </li>
-            
-            <!-- Nav item -->
-            <li class="nav-item">
-              <a class="nav-link has-arrow collapsed" href="#!" data-bs-toggle="collapse" data-bs-target="#navSystem" aria-expanded="false" aria-controls="navSystem">
-                <i data-feather="monitor" class="nav-icon icon-xs me-2">
-                </i>System
-              </a>
-              <div id="navSystem" class="collapse" data-bs-parent="#sideNavbar">
-                <ul class="nav flex-column">
-                  <li class="nav-item">
-                    <a class="nav-link" href="@@webRoot/pages/sign-in.html">Events</a>
-                  </li>
-                </ul>
-              </div>
-            </li>
-
-        </ul>
-    </div>
+<nav class="navbar navbar-dark navbar-theme-primary px-4 col-12 d-lg-none">
+  <a class="navbar-brand me-lg-5" href="{% url 'lists' %}">
+      <img class="navbar-brand-dark" src="{% static 'assets/img/logo/logo-full.svg' %}"/>
+  </a>
+  <div class="d-flex align-items-center">
+      <button class="navbar-toggler d-lg-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+  </div>
 </nav>
+
+<nav id="sidebarMenu" class="sidebar d-lg-block bg-gray-800 text-white collapse" data-simplebar>
+  <div class="sidebar-inner px-4 pt-3">
+    <div class="user-card d-flex d-md-none align-items-center justify-content-between justify-content-md-center pb-4">
+      <div class="collapse-close d-md-none">
+        <a href="#sidebarMenu" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="true" aria-label="Toggle navigation">
+            <svg class="icon icon-xs" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+          </a>
+      </div>
+    </div>
+    <ul class="nav flex-column pt-3 pt-md-0">
+      <li class="nav-item">
+        <a href="{% url 'lists' %}" class="nav-link d-flex align-items-center">
+          <span class="sidebar-icon">
+            <img src="{% static 'assets/img/logo/logo-full.svg' %}" height="50" width="200">
+          </span>
+        </a>
+      </li>
+      <li class="nav-item {% if url_name == 'lists' %}active{% endif %}">
+        <a href="{% url 'lists' %}" class="nav-link">
+          <span class="sidebar-icon">
+            <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          </span> 
+          <span class="sidebar-text">Lists</span>
+        </a>
+      </li>
+      <li class="nav-item {% if url_name == 'movies' %}active{% endif %}">
+        <a href="{% url 'movies' %}" class="nav-link">
+          <span class="sidebar-icon">
+            <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path></svg>
+          </span> 
+          <span class="sidebar-text">Movies</span>
+        </a>
+      </li>
+      <li class="nav-item {% if url_name == 'series' %}active{% endif %}">
+        <a href="{% url 'series' %}" class="nav-link">
+          <span class="sidebar-icon">
+            <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          </span> 
+          <span class="sidebar-text">Series</span>
+        </a>
+      </li>
+      <li class="nav-item {% if url_name == 'settings' %}active{% endif %}">
+        <a href="{% url 'settings' %}" class="nav-link">
+          <span class="sidebar-icon">
+            <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+          </span> 
+          <span class="sidebar-text">Settings</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <span class="nav-link d-flex justify-content-between align-items-center collapse" data-bs-toggle="collapse" data-bs-target="#submenu-pages">
+          <span>
+            <span class="sidebar-icon">
+              <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            </span> 
+            <span class="sidebar-text">System</span>
+          </span>
+          <span class="link-arrow">
+            <svg class="icon icon-sm" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
+          </span>
+        </span>
+        <div class="multi-level collapse {% if url_name == 'events' %}show{% endif %}" role="list" id="submenu-pages" aria-expanded="false">
+          <ul class="flex-column nav">
+            <li class="nav-item {% if url_name == 'events' %}active{% endif %}">
+              <a class="nav-link" href="{% url 'events' %}">
+                <span class="sidebar-text">Events</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+{% endwith %}

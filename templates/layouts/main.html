@@ -1,36 +1,98 @@
-<!doctype html>
-<html lang="en">
-    
-    <!-- Static assets-->
-    {% load static %}
-    
-    <head>
-        <!-- Required meta tags -->
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        
-        <!-- Favicon icon -->
-        <link rel="shortcut icon" type="image/x-icon" href="{% static 'assets/favicon/favicon.ico' %}">
-        
-        <!-- Bootstrap CSS -->
-        <link rel="stylesheet" href="{% static 'assets/css/theme.css' %}">
-        <link rel="stylesheet" href="{% static 'assets/css/custom.css' %}">
-        
-        <title>Excludarr</title>
-    </head>
-    <body class="bg-light">
-        <div id="db-wrapper">
-            {% include 'includes/navbar.html' %}
-            <div id="page-content">
-                {% block content %}{% endblock content %}
-            </div>
-        </div>
-        
-        <!-- Include default javascript -->
-        {% include 'includes/scripts.html' %}
-        
-        <!-- Page Specific JS File -->
-        {% block javascripts %}{% endblock javascripts %}
+<!--
 
-    </body>
+=========================================================
+* Volt Free - Bootstrap 5 Dashboard
+=========================================================
+
+* Product Page: https://themesberg.com/product/admin-dashboard/volt-bootstrap-5-dashboard
+* Copyright 2021 Themesberg (https://www.themesberg.com)
+* License (https://themesberg.com/licensing)
+
+* Designed and coded by https://themesberg.com
+
+=========================================================
+
+* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. Please contact us to request a removal.
+
+-->
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head> 
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!-- Primary Meta Tags -->
+<title>Excludarr</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="title" content="Excludarr">
+<meta name="author" content="Haije Ploeg">
+<meta name="description" content="Excludarr can exclude movies and series available on any streaming provider from Radarr and Sonarr to keep your library clean.">
+<meta name="keywords" content="excludarr, radarr, sonarr, movies, series, download, streaming providers" />
+<link rel="canonical" href="https://github.com/haijeploeg/excludarr">
+
+<!-- Favicon -->
+<link rel="apple-touch-icon" sizes="120x120" href="../../assets/img/favicon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="../../assets/img/favicon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../../assets/img/favicon/favicon-16x16.png">
+<link rel="manifest" href="../../assets/img/favicon/site.webmanifest">
+<link rel="mask-icon" href="../../assets/img/favicon/safari-pinned-tab.svg" color="#ffffff">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="theme-color" content="#ffffff">
+
+<!-- Sweet Alert -->
+<link type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.6.7/sweetalert2.css" rel="stylesheet">
+
+<!-- Notyf -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
+
+<!-- Volt CSS -->
+<link type="text/css" href="{% static 'assets/css/volt.css' %}" rel="stylesheet">
+
+</head>
+
+<body>        
+
+{% include 'includes/navbar.html' %}        
+
+<main class="content">
+  
+{% comment %} {% include 'includes/topbar.html' %} {% endcomment %}
+
+{% block content %}{% endblock content %}
+
+{% include 'includes/footer.html' %}
+
+</main>
+
+<!-- Core -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/simple-datatables@3.2.2/dist/umd/simple-datatables.min.js"></script>
+
+<!-- Vendor JS -->
+<script src="https://unpkg.com/onscreen@1.4.0/dist/on-screen.umd.js"></script>
+
+<!-- Slider -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.6.1/nouislider.min.js"></script>
+
+<!-- Datepicker -->
+<script src="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.2.0/dist/js/datepicker-full.min.js"></script>
+
+<!-- Sweet Alerts 2 -->
+<script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Moment JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
+
+<!-- Notyf -->
+<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+
+<!-- Github buttons -->
+<script async defer src="https://buttons.github.io/buttons.js"></script>
+
+<!-- Volt JS -->
+<script src="{% static 'assets/js/volt.js' %}"></script>
+    
+</body>
+
 </html>

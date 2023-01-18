@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Laag_1" data-name="Laag 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208.34 187.54">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #efbf84;
+      }
+
+      .cls-2 {
+        fill: #fff;
+        font-family: HPSimplified-Bold, 'HP Simplified';
+        font-size: 106.01px;
+        font-weight: 700;
+      }
+    </style>
+  </defs>
+  <rect class="cls-1" x="48.17" y="37.77" width="112" height="112" rx="18.5" ry="18.5"/>
+  <text class="cls-2" transform="translate(75.55 130.5)"><tspan x="0" y="0">E</tspan></text>
+</svg>

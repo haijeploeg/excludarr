@@ -1,4 +1,13 @@
 {
-    "python.pythonPath": "./env/bin/python",
-    "python.terminal.activateEnvInCurrentTerminal": true,
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "name": "Excludarr",
+      "database": "${workspaceFolder:excludarr}/db.sqlite3"
+    }
+  ],
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": false,
+  "python.linting.pylamaEnabled": false
 }

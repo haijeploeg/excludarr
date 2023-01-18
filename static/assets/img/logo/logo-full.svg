@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Laag_1" data-name="Laag 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 395.02 115.74">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-2 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-3 {
+        font-family: HPSimplified-Bold, 'HP Simplified';
+        font-size: 106.01px;
+        font-weight: 700;
+      }
+
+      .cls-3, .cls-4 {
+        fill: #fff;
+      }
+
+      .cls-5 {
+        letter-spacing: -.11em;
+      }
+
+      .cls-6 {
+        fill: #f0bc74;
+      }
+
+      .cls-4 {
+        font-family: HPSimplified-Regular, 'HP Simplified';
+        font-size: 75.59px;
+      }
+    </style>
+  </defs>
+  <rect class="cls-6" width="112" height="112" rx="18.5" ry="18.5"/>
+  <text class="cls-3" transform="translate(27.38 92.73)"><tspan x="0" y="0">E</tspan></text>
+  <text class="cls-4" transform="translate(129.1 92.73)"><tspan class="cls-2" x="0" y="0">x</tspan><tspan x="34.85" y="0">c</tspan><tspan class="cls-1" x="66.89" y="0">l</tspan><tspan x="85.56" y="0">udar</tspan><tspan class="cls-5" x="228.72" y="0">r</tspan><tspan x="247.02" y="0">.</tspan></text>
+</svg>

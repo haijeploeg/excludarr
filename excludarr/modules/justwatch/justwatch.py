@@ -8,7 +8,7 @@ from .exceptions import JustWatchTooManyRequests, JustWatchNotFound, JustWatchBa
 
 
 class JustWatch(object):
-    def __init__(self, locale, ssl_verify=True):
+    def __init__(self, locale="en_US", ssl_verify=True):
         # Setup base variables
         self.base_url = "https://apis.justwatch.com/content"
         self.ssl_verify = ssl_verify
@@ -91,6 +91,14 @@ class JustWatch(object):
             return default_locale
 
         return locale
+
+    def get_locales(self):
+        path = "/locales/state"
+        
+        response = self._http_get(path)
+        locales = [x["full_locale"] for x in response]
+        
+        return sorted(locales)
 
     def get_providers(self):
         path = f"/providers/locale/{self.locale}"

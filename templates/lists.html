@@ -1,0 +1,53 @@
+{% extends 'layouts/main.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-4">
+  <div class="d-block mb-4 mb-md-0">
+      <h2 class="h4">Lists</h2>
+      <p class="mb-0">Excludarr can act as a list provider for Radarr and Sonarr, to prevent importing media that is available on configured streaming providers.</p>
+  </div>
+  <div class="btn-toolbar mb-2 mb-md-0">
+      <a href="#" class="btn btn-secondary d-inline-flex align-items-center">
+          <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+          New List
+      </a>
+  </div>
+</div>
+<div class="card card-body border-0 shadow table-wrapper table-responsive">
+  <table class="table table-hover">
+      <thead>
+          <tr>
+              <th class="border-gray-200">Name</th>
+              <th class="border-gray-200">Upstream</th>						
+              <th class="border-gray-200">Type</th>
+              <th class="border-gray-200">URL</th>
+              <th class="border-gray-200">Action</th>
+          </tr>
+      </thead>
+      <tbody>
+          <!-- Item -->
+          <tr>
+              <td><a href="#" class="fw-bold">IMDB Top 50</a></td>
+              <td><span class="fw-normal">https://imdb.com/lists/tt12345</span></td>
+              <td><span class="fw-normal">Radarr</span></td>                        
+              <td><span class="fw-normal">https://excludarr.digitalfault.com/lists/imdb-top-50.json</span></td>
+              <td>
+                <div class="btn-group">
+                  <button class="btn btn-link text-dark dropdown-toggle dropdown-toggle-split m-0 p-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <svg class="icon icon-xs" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                    <span class="visually-hidden">Toggle Dropdown</span>
+                  </button>
+                  <div class="dropdown-menu dashboard-dropdown mt-2 py-1" style="">
+                    <a class="dropdown-item d-flex align-items-center" href="#"><svg class="dropdown-icon me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Edit</a>
+                    <a class="dropdown-item d-flex align-items-center" href="#"><svg class="dropdown-icon me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path></svg> Delete</a>
+                  </div>
+                </div>
+              </td>
+          </tr>       
+      </tbody>
+  </table>
+  <div class="card-footer px-3 border-0 d-flex flex-column flex-lg-row align-items-center justify-content-between">
+      <div class="fw-normal small mt-4 mt-lg-0">Showing <b>1</b> out of <b>1</b> entries</div>
+  </div>
+</div>
+{% endblock content %}

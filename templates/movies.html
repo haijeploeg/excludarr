@@ -1,123 +1,92 @@
 {% extends 'layouts/main.html' %}
 
+{% load color %}
+
 {% block content %}
-
-    <!-- Container fluid -->
-    <div class="bg-dark pt-10 pb-21"></div>
-        <div class="container-fluid mt-n22 px-6">
-            <div class="row">
-                <div class="col-lg-12 col-md-12 col-12">
-                    <!-- Page header -->
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-4">
+  <div class="d-block mb-4 mb-md-0">
+      <h2 class="h4">Movies</h2>
+      <p class="mb-0">An overview of all movies. Here you can exclude, re-add, ignore and delete movies.</p>
+  </div>
+  <div class="btn-toolbar mb-2 mb-md-0">
+    <button class="btn btn-primary d-inline-flex align-items-center me-2" type="button" id="syncBtn">
+      <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+      <span>Sync</span>
+  </button>
+  <button class="btn btn-secondary d-inline-flex align-items-center" type="button" id="runBtn">
+    <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+    <span>Run Excludarr</span>
+</button>
+    {% comment %} <a href="#" class="btn btn-primary d-inline-flex align-items-center me-2" id="syncBtn">
+      <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+      Sync
+    </a>
+    <a href="#" class="btn btn-secondary d-inline-flex align-items-center">
+      <svg class="icon icon-xs me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+      Run Excludarr
+    </a> {% endcomment %}
+  </div>
+</div>
+<div class="row">
+  <div class="col">
+    <div class="card">
+      <div class="table-responsive py-4">
+        <table class="table table-flush" id="datatable">
+            <thead class="thead-light">
+            <tr>
+                <th>Name</th>
+                <th>Quality available</th>
+                <th>Streaming on</th>
+                <th>Excluded</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+              {% for movie in movies %}
+              <tr>
+                <td>
+                  <a href="#" class="d-flex align-items-center">
+                    <img class="me-2 image image-sm rounded" alt="Image placeholder" src="{{ movie.poster }}">
                     <div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="mb-2 mb-lg-0">
-                                <h3 class="mb-0 text-white">Movies</h3>
-                            </div>
-                            <div>
-                                <form action="{% url 'movies' %}" method="POST">
-                                  <button type="button" id="run" name="movies_id" value="run" class="btn btn-white">Run Excludarr</button>
-                                </form>
-                            </div>
-                        </div>
+                      <span class="h6">{{ movie.title }}</span>
                     </div>
-                </div>
-            </div>
-  
-            <!-- row  -->
-            <div class="row mt-6">
-              <div class="col-md-12 col-12">
-                  <!-- card  -->
-                  <div class="card">
-                      <!-- card header  -->
-                      <div class="card-header bg-white  py-4">
-                          <h4 class="mb-0">Movies overview</h4>
-                      </div>
-                      <!-- table  -->
-                      <div class="table-responsive">
-                          <table class="table text-nowrap mb-0">
-                              <thead class="table-light">
-                                  <tr>
-                                      <th>Name</th>
-                                      <th>Quality available</th>
-                                      <th>Streaming on</th>
-                                      <th>Excluded</th>
-                                      <th>Actions</th>
-                                  </tr>
-                              </thead>
-                              <tbody>
-                                  <tr>
-                                      <td class="align-middle">
-                                          <div class="d-flex align-items-center">
-                                              <div>
-                                                  <img src="https://www.themoviedb.org/t/p/original/oENY593nKRVL2PnxXsMtlh8izb4.jpg" alt="" height="40">
-                                              </div>
-                                              <div class="ms-3 lh-1">
-                                                  <h5 class=" mb-1"> <a href="#" class="text-inherit">The Lord of the Rings</a></h5>
-                                              </div>
-                                          </div>
-                                      </td>
-                                      <td class="align-middle"><span class="badge bg-success">4K</span></td>
-                                      <td class="align-middle">
-                                          <span class="badge bg-danger">Netflix</span>
-                                          <span class="badge bg-dark">Videoland</span>
-                                          <span class="badge bg-dark">HBO</span>
-                                          <span class="badge bg-info">Amazon Prime</span>
-                                          <span class="badge bg-warning">Roku</span>
-                                      </td>
-                                      <td class="align-middle"><span class="badge bg-danger">No</span></td>
-                                      <td class="align-middle text-dark">
-                                          <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#excludeMovieModal">Exclude</button>
-                                          <button type="button" class="btn btn-outline-dark btn-sm">Re-add</button>
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                      <!-- card footer  -->
-                      <div class="card-footer bg-white text-center">
-                          <a href="#" class="link-primary">View All Projects</a>
-
-                      </div>
-                  </div>
-
-              </div>
-            </div>
-            
-            
-            <!-- Modal -->
-            <div class="modal fade" id="excludeMovieModal" tabindex="-1" role="dialog" aria-labelledby="excludeMovieModalTitle" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="excludeMovieModalTitle">Exclude movie</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                  </a>
+                </td>
+                <td>
+                  <span class="badge" style="background-color: {% if movie.quality_available is not None %}{{ movie.quality_available | colorize }}{% else %}#000{% endif %};">
+                    {% if movie.quality_available is not None %}{{ movie.quality_available }}{% else %}N/A{% endif %}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-primary">Videoland</span>
+                  <span class="badge bg-danger">Netflix</span>
+                </td>
+                <td>
+                  {% if movie.excluded %}
+                  <span class="badge bg-success">Yes</span>
+                  {% else %}
+                  <span class="badge bg-danger">No</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="btn-group">
+                    <button class="btn btn-link text-dark dropdown-toggle dropdown-toggle-split m-0 p-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      <svg class="icon icon-xs" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                      <span class="visually-hidden">Toggle Dropdown</span>
                     </button>
+                    <div class="dropdown-menu dashboard-dropdown mt-2 py-1" style="">
+                      <a class="dropdown-item d-flex align-items-center" href="#"><svg class="dropdown-icon me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg> Re-add</a>
+                      <a class="dropdown-item d-flex align-items-center" href="#"><svg class="dropdown-icon me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg> Exclude</a>
+                      <a class="dropdown-item d-flex align-items-center" href="#"><svg class="dropdown-icon me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path></svg> Delete</a>
+                    </div>
                   </div>
-                  <div class="modal-body">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" checked>
-                      <label class="form-check-label" for="flexCheckDefault">Delete files</label>
-                      </div>
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="" id="flexCheckChecked">
-                        <label class="form-check-label" for="flexCheckChecked">Add import exclusion</label>
-                      </div>
-                  </div>
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-success">Exclude</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+    </div>
+  </div>
+</div>
 {% endblock content %}
-
-<!-- Page specific JS -->
-{% load static %}
-{% block javascripts %}
-<script>
-  var url_name = "{% url 'movies' %}"
-  var csrf_token = "{{ csrf_token }}"
-</script>
-<script src="{% static '/assets/js/movies.js' %}"></script>
-{% endblock javascripts %}
