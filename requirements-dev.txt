@@ -7,3 +7,4 @@ twine>=3.7.1
 setuptools>=59.7.0
 wheel>=0.37.0
 pre-commit>=2.16.0
+mypy>=1.8.0
