@@ -15,7 +15,7 @@ def upd_episode(self, id, data):
 
 
 # Patch the upd_episode endpoint
-SonarrAPI.upd_episode = upd_episode
+setattr(SonarrAPI, "upd_episode", upd_episode)
 
 
 class SonarrActions:

@@ -7,6 +7,10 @@ from excludarr.utils.config import Config
 from excludarr.utils import output
 
 app = typer.Typer()
+config = Config()
+
+# Hacky way to get the current log level context
+loglevel = logger._core.min_level  # type: ignore
 
 
 @app.command(help="Get all the possible providers for your locale")
@@ -31,13 +35,4 @@ def init():
     Initializes the command. Reads the configuration.
     """
     logger.debug("Got radarr as subcommand")
-
-    # Set globals
-    global config
-    global loglevel
-
-    # Hacky way to get the current log level context
-    loglevel = logger._core.min_level
-
     logger.debug("Reading configuration file")
-    config = Config()
