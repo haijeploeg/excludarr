@@ -13,3 +13,4 @@ types-Pygments>=2.17
 types-PyYAML>=6.0
 types-docutils>=0.20
 types-setuptools>=69.0
+types-requests>=2.27.1
