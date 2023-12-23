@@ -1,7 +1,7 @@
 repos:
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.5.0
     hooks:
     - id: end-of-file-fixer
       exclude: ^.example/
@@ -10,8 +10,20 @@ repos:
     - id: check-yaml
 
   - repo: https://github.com/psf/black
-    rev: 21.12b0
+    rev: 23.12.1
     hooks:
       - id: black
         name: Python Black
         args: ["--line-length", "100"]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: Python MyPy
+        additional_dependencies:
+          - types-Pygments>=2.17
+          - types-PyYAML>=6.0
+          - types-docutils>=0.20
+          - types-setuptools>=69.0
+          - types-requests>=2.27.1

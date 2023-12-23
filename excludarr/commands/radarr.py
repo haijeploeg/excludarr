@@ -11,12 +11,16 @@ from excludarr.utils.config import Config
 from excludarr.utils.enums import Action
 
 app = typer.Typer()
+config = Config()
+
+# Hacky way to get the current log level context
+loglevel = logger._core.min_level  # type: ignore
 
 
 @app.command(help="Exclude movies in Radarr by deleting or not monitoring them")
 def exclude(
-    providers: Optional[List[str]] = typer.Option(
-        None,
+    providers: List[str] = typer.Option(
+        [],
         "-p",
         "--provider",
         metavar="PROVIDER",
@@ -138,8 +142,8 @@ def exclude(
 
 @app.command(help="Change status of movies to monitored if no provider is found")
 def re_add(
-    providers: Optional[List[str]] = typer.Option(
-        None,
+    providers: List[str] = typer.Option(
+        [],
         "-p",
         "--provider",
         metavar="PROVIDER",
@@ -221,16 +225,7 @@ def init():
     Initializes the command. Reads the configuration.
     """
     logger.debug("Got radarr as subcommand")
-
-    # Set globals
-    global config
-    global loglevel
-
-    # Hacky way to get the current log level context
-    loglevel = logger._core.min_level
-
     logger.debug("Reading configuration file")
-    config = Config()
 
 
 if __name__ == "__main__":

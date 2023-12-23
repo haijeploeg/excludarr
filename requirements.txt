@@ -4,3 +4,4 @@ rich>=12.4.1
 requests>=2.27.1
 PyYAML>=6.0
 pyarr>=3.1.3
+urllib3>=2.1.0

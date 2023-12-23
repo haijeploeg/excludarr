@@ -22,7 +22,7 @@ class JustWatch(object):
             total=5,
             backoff_factor=0.5,
             status_forcelist=[429, 500, 502, 503, 504],
-            method_whitelist=["GET", "POST"],
+            allowed_methods=["GET", "POST"],
         )
 
         self.session.mount("http://", HTTPAdapter(max_retries=retries))
@@ -38,7 +38,6 @@ class JustWatch(object):
         return "{}{}".format(self.base_url, path)
 
     def _filter_api_error(self, data):
-
         if data.status_code == 400:
             raise JustWatchBadRequest(data.text)
         elif data.status_code == 404:
