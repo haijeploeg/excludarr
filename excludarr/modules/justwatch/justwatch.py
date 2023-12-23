@@ -22,7 +22,7 @@ class JustWatch(object):
             total=5,
             backoff_factor=0.5,
             status_forcelist=[429, 500, 502, 503, 504],
-            method_whitelist=["GET", "POST"],
+            allowed_methods=["GET", "POST"],
         )
 
         self.session.mount("http://", HTTPAdapter(max_retries=retries))
