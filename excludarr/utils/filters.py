@@ -18,13 +18,15 @@ def get_tmdb_ids(external_ids):
         tmdb_ids = [
             int(x["external_id"])
             for x in external_ids
-            if (x["provider"] == "tmdb_latest" or x["provider"] == "tmdb") and x["external_id"].isnumeric()
+            if (x["provider"] == "tmdb_latest" or x["provider"] == "tmdb")
+            and x["external_id"].isnumeric()
         ]
         tmdb_ids = list(set(tmdb_ids))
     except (KeyError, IndexError):
         tmdb_ids = []
 
     return tmdb_ids
+
 
 def get_imdb_ids(external_ids):
     try:
@@ -102,7 +104,7 @@ def get_release_date(raw_movie_data, format="%Y-%m-%d"):
 
 
 def get_filesize_gb(filesize):
-    filesize_gb = filesize / 1024.0 ** 3
+    filesize_gb = filesize / 1024.0**3
     return "%.2f" % filesize_gb + "GB"
 
 

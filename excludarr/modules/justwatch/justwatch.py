@@ -38,7 +38,6 @@ class JustWatch(object):
         return "{}{}".format(self.base_url, path)
 
     def _filter_api_error(self, data):
-
         if data.status_code == 400:
             raise JustWatchBadRequest(data.text)
         elif data.status_code == 404:
