@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, TypeAlias
+import re
 import httpx
+from loguru import logger
 
 from json import JSONDecodeError
 
@@ -24,7 +26,6 @@ class JustWatch(object):
     _language: str
     _country: str
 
-    base_url: str = "https://apis.justwatch.com/content"
     graphql_url: str = "https://apis.justwatch.com/graphql"
 
     def __init__(self, locale, ssl_verify: bool = True):
@@ -45,9 +46,6 @@ class JustWatch(object):
 
     def __exit__(self, *args):
         self.httpx_client.close()
-
-    def _build_url(self, path: str):
-        return "{}{}".format(self.base_url, path)
 
     def _filter_api_error(self, data: httpx.Response):
 
@@ -75,79 +73,50 @@ class JustWatch(object):
 
         return j
 
-    def _http_request(
-        self,
-        method: str,
-        path: str,
-        json: Any | None = None,
-        params: httpx.QueryParams | None = None,
-    ):
+    def _graphql_post(self, request: Dict[str, Any]):
         # JustWatch returns a 403 without a reasonable User-Agent
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"  # noqa: E501
         }
-        url = self._build_url(path)
-
-        request = self.httpx_client.build_request(
-            method, url, headers=headers, json=json, params=params
+        response = self.httpx_client.post(
+            self.graphql_url, headers=headers, json=request
         )
 
-        result = self.httpx_client.send(request)
-
-        return self._filter_api_error(result)
-
-    def _http_get(self, path: str, params: httpx.QueryParams | None = None):
-        return self._http_request("get", path, params=params)
-
-    def _http_post(self, path: str, json: Any | None = None):
-        return self._http_request("post", path, json=json)
-
-    def _http_put(
-        self,
-        path: str,
-        json: Any | None = None,
-        params: httpx.QueryParams | None = None,
-    ):
-        return self._http_request("put", path, params=params, json=json)
-
-    def _http_delete(
-        self,
-        path: str,
-        json: Any | None = None,
-        params: httpx.QueryParams | None = None,
-    ):
-        return self._http_request("delete", path, json=json, params=params)
+        return self._filter_api_error(response)
 
     def _get_full_locale(self, locale: str):
-        default_locale = "en_US"
-        path = "/locales/state"
-
-        jw_locales = self._http_get(path)
-
-        valid_locale = any(
-            [True for i in jw_locales if i["full_locale"] == locale]
-        )
-
-        # Check if the locale is a iso_3166_2 Country Code
-        if not valid_locale:
-            locale = "".join(
-                [
-                    i["full_locale"]
-                    for i in jw_locales
-                    if i["iso_3166_2"] == locale
-                ]
-            )
-
-        # If the locale is empty return the default locale
-        if not locale:
-            return default_locale
-
-        return locale
+        if re.fullmatch(r"[a-z]{2}_[A-Z]{2}", locale):
+            return locale
+        if re.fullmatch(r"[A-Za-z]{2}", locale):
+            return f"en_{locale.upper()}"
+        return "en_US"
 
     def get_providers(self):
-        path = f"/providers/locale/{self._locale}"
-
-        return self._http_get(path)
+        result = self._graphql_post(
+            {
+                "operationName": "GetPackages",
+                "query": (
+                    "query GetPackages($country: Country!, "
+                    "$platform: Platform!) { "
+                    "packages(country: $country, platform: $platform) { "
+                    "packageId clearName technicalName shortName "
+                    "monetizationTypes } }"
+                ),
+                "variables": {"country": self._country, "platform": "WEB"},
+            }
+        )
+        return [
+            {
+                "id": package["packageId"],
+                "clear_name": package["clearName"],
+                "technical_name": package["technicalName"],
+                "short_name": package["shortName"],
+                "monetization_types": [
+                    value.lower() for value in package["monetizationTypes"]
+                ],
+            }
+            for package in result["data"]["packages"]
+        ]
 
     def query_movie_offers(
         self, jwid: str, providers: List[str] = [], forceFlatrate=False
@@ -156,6 +125,7 @@ class JustWatch(object):
         try:
             result_json = self._get_providers(jwid, providers, forceFlatrate)
         except Exception:
+            logger.exception("Failed to query JustWatch movie offers")
             return None
 
         result: MovieOffers = []
@@ -172,6 +142,7 @@ class JustWatch(object):
         try:
             result_json = self._get_providers(jwid, providers, forceFlatrate)
         except Exception:
+            logger.exception("Failed to query JustWatch show offers")
             return None
 
         result: ShowOffers = {}
@@ -195,6 +166,7 @@ class JustWatch(object):
         try:
             return self._search(title, "MOVIE", results, year)
         except Exception:
+            logger.exception("Failed to search JustWatch movies")
             return None
 
     def search_show(
@@ -204,6 +176,7 @@ class JustWatch(object):
         try:
             return self._search(title, "SHOW", results, year)
         except Exception:
+            logger.exception("Failed to search JustWatch shows")
             return None
 
     def _search(
@@ -233,9 +206,7 @@ class JustWatch(object):
             },
         }
 
-        response = self.httpx_client.post(self.graphql_url, json=request)
-
-        filtered = self._filter_api_error(response)
+        filtered = self._graphql_post(request)
 
         ret = []
         for node in filtered["data"]["popularTitles"]["edges"]:
@@ -277,6 +248,4 @@ class JustWatch(object):
             },
         }
 
-        response = self.httpx_client.post(self.graphql_url, json=request)
-
-        return self._filter_api_error(response)
+        return self._graphql_post(request)
