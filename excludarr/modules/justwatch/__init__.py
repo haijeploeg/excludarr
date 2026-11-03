@@ -1,1 +1,1 @@
-from .justwatch import JustWatch
+from .justwatch import JustWatch  # noqa

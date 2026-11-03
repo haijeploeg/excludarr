@@ -1,6 +1,7 @@
 import copy
 
 from io import IOBase
+from typing import Dict
 from yaml import dump, safe_load
 from loguru import logger
 from pathlib import Path
@@ -8,10 +9,17 @@ from pathlib import Path
 from excludarr.utils.redact import redact_config_dict
 
 
+class NoConfigException(Exception):
+    pass
+
+
 class Config:
+
+    _config: Dict
+
     def __init__(self):
         self.__class__ = Config
-        self.config = None
+        self._config = {}
 
         possible_locations = (
             "/etc/excludarr/excludarr.yml",
@@ -25,6 +33,8 @@ class Config:
 
         if config_file is not None:
             self.load(config_file)
+        else:
+            raise NoConfigException("no config")
 
     def determine_location(self, possible_locations):
         logger.debug("Determining which configfile to use")
@@ -44,33 +54,33 @@ class Config:
         logger.debug(f"Reading configfile: {config_file}")
 
         if isinstance(config_file, IOBase):
-            self.config = safe_load(config_file)
+            self._config = safe_load(config_file)
         else:
             with open(config_file, "r") as _file:
-                self.config = safe_load(_file)
+                self._config = safe_load(_file)
 
         logger.debug(
-            f"Read the following configuration: {redact_config_dict(copy.deepcopy(self.config))}"
+            f"Read the following configuration: {redact_config_dict(copy.deepcopy(self._config))}"  # noqa: E501
         )
 
     def dump(self):
-        return dump(self.config)
+        return dump(self._config)
 
     @property
     def general_section(self):
-        return self.config.get("general", {})
+        return self._config.get("general", {})
 
     @property
     def tmdb_section(self):
-        return self.config.get("tmdb", {})
+        return self._config.get("tmdb", {})
 
     @property
     def radarr_section(self):
-        return self.config.get("radarr", {})
+        return self._config.get("radarr", {})
 
     @property
     def sonarr_section(self):
-        return self.config.get("sonarr", {})
+        return self._config.get("sonarr", {})
 
     @property
     def locale(self):
@@ -105,6 +115,10 @@ class Config:
         return self.radarr_section.get("exclude", [])
 
     @property
+    def radarr_tags_to_exclude(self):
+        return self.radarr_section.get("tags_to_exclude", [])
+
+    @property
     def sonarr_url(self):
         return self.sonarr_section.get("url", None)
 
@@ -119,3 +133,7 @@ class Config:
     @property
     def sonarr_excludes(self):
         return self.sonarr_section.get("exclude", [])
+
+    @property
+    def sonarr_tags_to_exclude(self):
+        return self.sonarr_section.get("tags_to_exclude", [])
