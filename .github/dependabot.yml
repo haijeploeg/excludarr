@@ -1,24 +1,31 @@
 version: 2
+
+# One weekly PR with every update (pip, GitHub Actions, Docker). Its fix(deps)
+# commit cuts a single patch release with all updates at once.
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: weekly
+
 updates:
   - package-ecosystem: pip
     directory: /
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
     # Only bump a requirement when a new release falls outside its range; raising
-    # `>=` floors adds no value for users and would cut a release per bump.
+    # `>=` floors adds no value for users.
     versioning-strategy: increase-if-necessary
-    schedule:
-      interval: weekly
     commit-message:
       prefix: fix(deps)
-      prefix-development: chore(deps)
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
     commit-message:
-      prefix: ci
+      prefix: fix(deps)
   - package-ecosystem: docker
     directory: /
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: dependencies
     commit-message:
-      prefix: fix(docker)
+      prefix: fix(deps)
