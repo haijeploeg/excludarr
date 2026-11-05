@@ -33,3 +33,20 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/excludarr/__init__.py:__version__"]
+build_command = "pip install build && python -m build"
+commit_message = "chore(release): {version}"
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.changelog]
+mode = "update"
+insertion_flag = "<!-- version list -->"
+exclude_commit_patterns = ["^chore\\(release\\):"]
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"

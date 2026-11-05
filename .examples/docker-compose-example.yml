@@ -1,7 +1,7 @@
 ---
 services:
   excludarr:
-    image: excludarr/excludarr
+    image: ghcr.io/haijeploeg/excludarr
     container_name: excludarr
     environment:
       - RADARR_API_KEY=secret

@@ -30,26 +30,23 @@ Requires Python 3.12 or newer.
 
 ## Running the testing environment
 
-The testing environment is composed of a Radarr instance and a Sonarr instance, we also have `arr-setup` a tool to automatically populate both Radarr and Sonarr based on a config. You can run the environment both with or without `arr-setup`, if you don't run it you'll just have to add movies/series manually.
+`docker compose up` starts a Radarr instance on `http://localhost:7878` and a Sonarr instance on
+`http://localhost:8989`. Add movies and series by hand.
 
-This whole environment can be run both through docker compose or by running each component by hand.
+## Commits and releases
 
-### Without `arr-setup`
+Releases are fully automatic. Every push to `main` runs lint and tests; when they pass,
+[python-semantic-release](https://python-semantic-release.readthedocs.io/) reads the
+[Conventional Commits](https://www.conventionalcommits.org/) since the last tag and decides the
+next version:
 
-Steps to run the environment:
+- `fix: ...` or `perf: ...`: patch release
+- `feat: ...`: minor release
+- `feat!: ...` or a `BREAKING CHANGE:` footer: major release
+- anything else (`chore:`, `docs:`, `ci:`, `test:`, `refactor:`, ...): no release
 
-1. run `docker compose up` (by default only Radarr and Sonarr will run)
-2. done
-
-With the default `docker-compose.yml` you can reach radarr on `http://localhost:7878` and sonarr on `http://localhost:8989`
-
-### With `arr-setup`
-
-Steps to run the environment:
-
-1. write your config file and put it in the `arr_setup_config` volume that will be mounted. The name of the config should be `config.yml` and you can find an example config file in `arr-setup/.examples/arr-setup-example.yml`
-2. run `docker compose --profile setup up`
-3. make sure that the logs for `setup-arr` and `config_setup_arr` do not contain errors
-4. done
-
-With the default `docker-compose.yml` you can reach radarr on `http://localhost:7878` and sonarr on `http://localhost:8989`
+On a release it bumps the version in `pyproject.toml` and `src/excludarr/__init__.py`, updates
+`CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, publishes to PyPI (trusted
+publishing) and pushes `ghcr.io/haijeploeg/excludarr` with the `X.Y.Z`, `X.Y`, `X` and `latest`
+tags. With squash merges, the PR title becomes the commit message, so give PRs a conventional
+title.
