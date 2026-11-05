@@ -1,6 +1,8 @@
 # Excludarr Change History
 
-## 2.0.0
+<!-- version list -->
+
+## 2.0.0 highlights
 
 ### Breaking
 

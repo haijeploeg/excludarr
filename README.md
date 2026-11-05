@@ -1,4 +1,4 @@
-![License](https://img.shields.io/github/license/excludarr/excludarr) [![Docker](https://github.com/excludarr/excludarr/actions/workflows/docker.yml/badge.svg)](https://github.com/excludarr/excludarr/actions/workflows/docker.yml) ![Docker Pulls](https://img.shields.io/docker/pulls/excludarr/excludarr)
+![License](https://img.shields.io/github/license/haijeploeg/excludarr) [![CI](https://github.com/haijeploeg/excludarr/actions/workflows/ci.yml/badge.svg)](https://github.com/haijeploeg/excludarr/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/excludarr)](https://pypi.org/project/excludarr/)
 
 # Excludarr
 
@@ -25,7 +25,7 @@ pip install excludarr
 Docker:
 
 ```bash
-docker run --rm -v ./config:/config excludarr/excludarr run
+docker run --rm -v ./config:/config ghcr.io/haijeploeg/excludarr run
 ```
 
 The image reads `/config/excludarr.yml` (`EXCLUDARR_CONFIG`) and keeps its SQLite database in
