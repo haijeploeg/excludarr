@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "respx>=0.21", "ruff>=0.6"]
+dev = ["pytest>=9.2.0", "respx>=0.21", "ruff>=0.6"]
 
 [project.scripts]
 excludarr = "excludarr.cli:main"
