@@ -104,6 +104,33 @@ def test_env_substitution(tmp_path, monkeypatch):
     assert database_url(cfg, path) == f"sqlite:///{tmp_path / 'excludarr.db'}"
 
 
+def test_env_values_are_not_parsed_as_yaml(tmp_path, monkeypatch):
+    f = tmp_path / "excludarr.yml"
+    f.write_text("integrations:\n  radarr:\n    url: http://r:7878\n    api_key: ${RADARR_KEY}\n")
+    # ": " and "#" would break or truncate the value under raw text substitution.
+    monkeypatch.setenv("RADARR_KEY", "a: b # c")
+    cfg, _ = load_config(f)
+    assert cfg.integrations.radarr.api_key == "a: b # c"
+
+
+def test_yaml_error_does_not_leak_env_values(tmp_path, monkeypatch):
+    f = tmp_path / "excludarr.yml"
+    f.write_text("integrations:\n  radarr:\n    api_key: ${RADARR_KEY}: x\n")
+    monkeypatch.setenv("RADARR_KEY", "topsecret")
+    with pytest.raises(ConfigError) as e:
+        load_config(f)
+    assert "topsecret" not in str(e.value)
+
+
+def test_env_var_in_comment_is_ignored(tmp_path, monkeypatch):
+    f = tmp_path / "excludarr.yml"
+    f.write_text(
+        "# ${UNSET_VAR}\nintegrations:\n  radarr:\n    url: http://r:7878\n    api_key: k\n"
+    )
+    monkeypatch.delenv("UNSET_VAR", raising=False)
+    load_config(f)
+
+
 def test_invalid_config_raises_config_error(tmp_path):
     f = tmp_path / "c.yml"
     f.write_text("integrations: {}\n")

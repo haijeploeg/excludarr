@@ -192,21 +192,34 @@ def find_config_path(explicit: Path | None) -> Path:
     raise ConfigError("no config file found; tried: " + ", ".join(str(c) for c in candidates))
 
 
-def _subst(text: str) -> str:
+def _subst(value):
+    """Expand ${VAR} inside parsed string values only.
+
+    Substituting after parsing keeps secrets out of YAML error snippets and
+    stops env values from injecting YAML structure.
+    """
+    if isinstance(value, dict):
+        return {k: _subst(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_subst(v) for v in value]
+    if not isinstance(value, str):
+        return value
+
     def repl(m: re.Match) -> str:
         if m[1] not in os.environ:
             raise ConfigError(f"environment variable {m[1]} is not set")
         return os.environ[m[1]]
 
-    return re.sub(r"\$\{(\w+)\}", repl, text)
+    return re.sub(r"\$\{(\w+)\}", repl, value)
 
 
 def load_config(path: Path | None) -> tuple[Config, Path]:
     p = find_config_path(path)
     try:
-        data = yaml.safe_load(_subst(p.read_text())) or {}
+        data = yaml.safe_load(p.read_text()) or {}
     except yaml.YAMLError as e:
         raise ConfigError(f"invalid YAML in {p}: {e}") from e
+    data = _subst(data)
     try:
         return Config.model_validate(data), p
     except ValidationError as e:

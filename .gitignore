@@ -115,3 +115,7 @@ test.py
 
 providers.json
 .directory
+
+# Track CLAUDE.md and superpowers docs despite global ignores
+!CLAUDE.md
+!docs/superpowers/
