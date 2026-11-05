@@ -33,6 +33,18 @@ Requires Python 3.12 or newer.
 `docker compose up` starts a Radarr instance on `http://localhost:7878` and a Sonarr instance on
 `http://localhost:8989`. Add movies and series by hand.
 
+## Recording the README demo
+
+`docs/demo/demo.gif` is recorded with [VHS](https://github.com/charmbracelet/vhs) against a fake
+Radarr (`docs/demo/fake_radarr.py`) with live JustWatch data. From the repo root:
+
+```bash
+docker build -t excludarr-demo -f docs/demo/Dockerfile .
+docker run --rm -v "$PWD/docs/demo:/vhs" excludarr-demo demo.tape
+```
+
+Edit `docs/demo/demo.tape` to change the script and `docs/demo/excludarr.yml` for the rules.
+
 ## Commits and releases
 
 Releases are fully automatic. Every push to `main` runs lint and tests; when they pass,

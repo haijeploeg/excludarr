@@ -1,0 +1,27 @@
+profile:
+  locale: nl_NL
+  providers: [Netflix, Amazon Prime Video]
+
+integrations:
+  radarr:
+    url: http://localhost:7878
+    api_key: demo
+
+rules:
+  - name: Streaming movies
+    target: radarr
+    preview: false
+    grace_period: 14d
+    action: delete_files
+    when:
+      streaming: my_providers
+    unless:
+      - tag: keep
+
+  - name: Big old movies
+    target: radarr
+    action: delete
+    when:
+      all:
+        - added_more_than: 365d
+        - size_more_than: 15GB
