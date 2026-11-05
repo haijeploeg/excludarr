@@ -1,0 +1,2 @@
+FROM excludarr/excludarr@sha256:0c0bd97748a577ce6b77415963a025e95322aebeb81de6603fb73773ea7d36a6
+COPY excludarr/modules/justwatch/ /app/excludarr/modules/justwatch/

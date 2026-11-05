@@ -2,6 +2,7 @@ import typer
 from typing import Optional
 from loguru import logger
 
+from excludarr.commands import MyContext
 from excludarr.modules.justwatch import justwatch
 from excludarr.utils.config import Config
 from excludarr.utils import output
@@ -11,10 +12,16 @@ app = typer.Typer()
 
 @app.command(help="Get all the possible providers for your locale")
 def list(
+    ctx: typer.Context,
     locale: Optional[str] = typer.Option(
-        None, "-l", "--locale", metavar="LOCALE", help="Your locale e.g: en_US."
-    )
+        None,
+        "-l",
+        "--locale",
+        metavar="LOCALE",
+        help="Your locale e.g: en_US.",
+    ),
 ):
+    config: Config = ctx.obj.config
     # Check if locale is set on CLI otherwise get the value from the config
     if not locale:
         locale = config.locale
@@ -26,18 +33,19 @@ def list(
 
 
 @app.callback()
-def init():
+def init(ctx: typer.Context):
     """
     Initializes the command. Reads the configuration.
     """
     logger.debug("Got radarr as subcommand")
 
-    # Set globals
-    global config
-    global loglevel
-
     # Hacky way to get the current log level context
-    loglevel = logger._core.min_level
+    loglevel = logger._core.min_level  # type: ignore
 
     logger.debug("Reading configuration file")
     config = Config()
+
+    ctx.obj = MyContext()
+
+    ctx.obj.config = config
+    ctx.obj.loglevel = loglevel
