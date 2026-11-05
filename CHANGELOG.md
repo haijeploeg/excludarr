@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.1 (2026-11-05)
+
+### Bug Fixes
+
+- **docker**: Bump python from 3.12-alpine to 3.15-alpine
+  ([`6017924`](https://github.com/haijeploeg/excludarr/commit/60179244b412812ae66efa8cb92e623a3de7127c))
+
+
 ## v2.0.0 (2026-11-05)
 
 ### Bug Fixes
