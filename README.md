@@ -50,8 +50,8 @@ Copy `.examples/excludarr-example.yml` to `excludarr.yml`. The config file is th
 - `profile`: `locale` and `providers`, the defaults for every `streaming` condition. List the
   providers with `excludarr providers list --locale nl_NL`.
 - `integrations`: `radarr`, `sonarr`, `tautulli`, `seerr`, `plex`. Reference secrets as
-  dollar-brace environment variables (`${RADARR_API_KEY}`). Every placeholder in the file,
-  comments included, must be set.
+  dollar-brace environment variables (`${RADARR_API_KEY}`) inside string values. Every
+  placeholder in a value must be set; placeholders in comments are ignored.
 - `rules`: run in file order.
 
 Rule fields: `name`, `target` (`radarr`|`sonarr`), `level` (Sonarr: `series`|`season`|`episode`,
