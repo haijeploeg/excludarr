@@ -21,7 +21,7 @@ arr_setup = "arr_setup.main:cli"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.11.0"
-black = "^24.4.2"
+black = ">=24.4.2,<27.0.0"
 flake8 = "^7.1.0"
 
 [build-system]
