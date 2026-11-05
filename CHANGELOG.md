@@ -2,6 +2,52 @@
 
 <!-- version list -->
 
+## v2.0.0 (2026-11-05)
+
+### Bug Fixes
+
+- Migrate justwatch api calls to simple-justwatch-python-api client
+  ([`cae06b0`](https://github.com/haijeploeg/excludarr/commit/cae06b008f013e3d40a1d014d7629ad9267b1760))
+
+- **config**: Substitute ${VAR} after YAML parsing
+  ([`81e9bd1`](https://github.com/haijeploeg/excludarr/commit/81e9bd167f56c4ece01ffec257d183349f0dc0bd))
+
+- **justwatch**: Replace removed REST endpoints with GraphQL
+  ([`62edb09`](https://github.com/haijeploeg/excludarr/commit/62edb091f772efe4c763730570dbc0db6b8534b6))
+
+### Build System
+
+- Add Dockerfile to build a patched image on top of the published one
+  ([`65595a7`](https://github.com/haijeploeg/excludarr/commit/65595a7e6e6a9bd1c8d3eadbfd0c46e7c3c9d60c))
+
+### Chores
+
+- Import excludarr v1.1.3 source from published docker image
+  ([`efcdf92`](https://github.com/haijeploeg/excludarr/commit/efcdf92460622e8a5df78dda183bda6d330863e0))
+
+- Track CLAUDE.md and superpowers docs
+  ([`4987d14`](https://github.com/haijeploeg/excludarr/commit/4987d147d5e8dd11e3746d6d02206846fd7a0ddc))
+
+### Continuous Integration
+
+- Automate releases with python-semantic-release
+  ([`b51b436`](https://github.com/haijeploeg/excludarr/commit/b51b436cd1741da153f0157c6126e0306966d741))
+
+### Documentation
+
+- Describe rebase-only merges for releases
+  ([`ca0c990`](https://github.com/haijeploeg/excludarr/commit/ca0c9901ff93693bf85031733e8e6d62e9f435ff))
+
+### Features
+
+- V2 rewrite with YAML library rules engine
+  ([`0cacba5`](https://github.com/haijeploeg/excludarr/commit/0cacba5b063e2b3c3183a964aff3adc159d2af10))
+
+### Breaking Changes
+
+- V1 CLI and configuration are replaced.
+
+
 ## 2.0.0 highlights
 
 ### Breaking
