@@ -2,6 +2,9 @@ version: 2
 updates:
   - package-ecosystem: pip
     directory: /
+    # Only bump a requirement when a new release falls outside its range; raising
+    # `>=` floors adds no value for users and would cut a release per bump.
+    versioning-strategy: increase-if-necessary
     schedule:
       interval: weekly
     commit-message:
