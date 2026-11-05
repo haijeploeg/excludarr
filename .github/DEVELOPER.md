@@ -48,5 +48,5 @@ next version:
 On a release it bumps the version in `pyproject.toml` and `src/excludarr/__init__.py`, updates
 `CHANGELOG.md`, tags `vX.Y.Z`, creates the GitHub release, publishes to PyPI (trusted
 publishing) and pushes `ghcr.io/haijeploeg/excludarr` with the `X.Y.Z`, `X.Y`, `X` and `latest`
-tags. With squash merges, the PR title becomes the commit message, so give PRs a conventional
-title.
+tags. PRs are merged with "Rebase and merge" only, so every commit in a PR lands on `main` as
+is: give each commit a conventional message.
