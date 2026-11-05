@@ -1,0 +1,4 @@
+[
+ {"id":1,"title":"Dune","year":2021,"tmdbId":438631,"imdbId":"tt1160419","added":"2023-01-02T03:04:05Z","sizeOnDisk":5000,"hasFile":true,"monitored":true,"tags":[1],"genres":["Sci-Fi","Adventure"],"ratings":{"tmdb":{"value":7.8,"votes":10},"imdb":{"value":8.0,"votes":20}}},
+ {"id":2,"title":"Obscure","year":2020,"tmdbId":0,"imdbId":"","added":"2023-02-02T00:00:00Z","sizeOnDisk":0,"hasFile":false,"monitored":false,"tags":[],"genres":[],"ratings":{"tmdb":{"value":0,"votes":0}}}
+]

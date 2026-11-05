@@ -1,21 +1,32 @@
 # Development reference
 
-This document will walk you through running excludarr and setting up the environment locally.
+This document walks you through running Excludarr v2 and setting up the environment locally.
 
 ## Running locally
 
-### With poetry (suggested way)
+Requires Python 3.12 or newer.
 
-1. run `poetry install` in the root folder
-2. write your config file and put it in one of the paths indicated in the README or pass it to excludarr by using the `--config <your config>` flag
-3. run `poetry run excludarr` or just `excludarr` and add all the args you want to pass to excludarr eg: `poetry run excludarr --debug radarr exclude -a not-monitored`
-4. done
+1. create a virtualenv and install the package with the dev extras:
+   `python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`
+2. copy `.examples/excludarr-example.yml` to `excludarr.yml` (or pass `--config <file>`) and set
+   the environment variables it references
+3. run excludarr, for example:
+   - `.venv/bin/excludarr config validate`
+   - `.venv/bin/excludarr --debug preview`
+   - `.venv/bin/excludarr run --rule "Streaming movies" --interactive`
+   - `.venv/bin/excludarr providers list --locale nl_NL`
+
+### Tests and lint
+
+- `.venv/bin/pytest -q` (tests never hit the network: httpx is mocked with respx)
+- `.venv/bin/ruff format src tests && .venv/bin/ruff check src tests`
 
 ### Docker
 
 1. in the root folder run `docker build --tag=excludarr .`
-2. run `docker run -it --rm excludarr:latest` and add all the args you want to pass to excludarr eg: `docker run -it --rm excludarr:latest --debug radarr exclude -a not-monitored`. NOTE: you also have pass to docker all the environment variables necessary to setup the config file for info check the README
-3. done
+2. run `docker run -it --rm -v "$PWD:/config" excludarr:latest preview` with your
+   `excludarr.yml` in the current directory, and pass the environment variables it references
+   with `-e`. Set `CRON_MODE=true` to run on a schedule instead (see the README).
 
 ## Running the testing environment
 

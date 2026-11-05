@@ -1,3 +1,4 @@
-# minute    hour    day   month   weekday   command
-0           1	      *	    *	      *	        excludarr sonarr exclude -a delete -d -e -y
-0           2	      *	    *	      *	        excludarr radarr exclude -a delete -d -e -y
+# minute  hour  day  month  weekday  command
+# cron starts jobs with an empty environment: source the container env (EXCLUDARR_CONFIG, API keys)
+# that the entrypoint writes to /etc/excludarr/env.sh, and send output to the container log.
+0         2     *    *      *        . /etc/excludarr/env.sh && excludarr run -y > /proc/1/fd/1 2>&1

@@ -1,61 +1,104 @@
-general:
-  # Do a fast search of the movie. If this settings is false,
-  # all results from JustWatch will be gathered before continueing.
-  # This can be painfully slow and is in most cases not needed.
-  # Only disable this if Excludarr cannot find a movie and if you know what you are doing!
-  fast_search: true
-  # Set your locale, this can be a two letter country code or locale like: en_US.
-  locale: en_NL
-  # A list of providers you have a subscription on. You can get a list of available
-  # providers using: `excludarr providers list`
+# Excludarr v2 example configuration.
+# Secrets are written as dollar-brace placeholders and resolved from the environment on load.
+
+# Defaults for every `streaming` condition. List providers with `excludarr providers list`.
+profile:
+  locale: nl_NL
   providers:
     - Netflix
     - Amazon Prime Video
-    - Apple iTunes
-    - Disney Plus
 
-# TMDB settings are optional. This is only used in case the serie is not found on JustWatch.
-# If a serie is not found on JustWatch using the IMDB ID, the TMDB API is being used to obtain
-# the TMDB ID from the TVDB ID. This is mostly not needed, only if you have a lot of unknown
-# series and your match score is really low.
-tmdb:
-  api_key: 123abc123abc123abc123abc123abc12
+# Optional: SQLAlchemy URL. Default: excludarr.db next to this file (/config in Docker).
+# database: sqlite:////config/excludarr.db
 
-radarr:
-  # The Radarr base url (include http of https)
-  url: 'http://localhost:7878'
-  # The Radarr api key
-  api_key: 123abc123abc123abc123abc123abc12
-  # Verify the SSL connection
-  verify_ssl: false
-  # Optional: exclude different titles. input the name the table output is showing.
-  # This will exclude the title in all actions (exclude and re-add) that excludarr does.
-  # This will prevent that excludarr will touch the title in Radarr.
-  exclude:
-    - 'Dave Chappelle: The Closer'
-  # Optional: exclude different tags. input the name of the tag as shown in Radarr
-  # This will exclude the titles with the specified tags in all actions (exclude and re-add) that excludarr does.
-  # This will prevent that excludarr will touch the titles with the specified tags in Radarr.
-  tags_to_exclude:
-    - movies
-    - other-tag
+# At least one of radarr/sonarr is required. tautulli, seerr and plex are optional and are
+# needed only by the conditions/options that use them.
+integrations:
+  radarr:
+    url: http://radarr:7878
+    api_key: ${RADARR_API_KEY}
+    # verify_ssl: true
+  sonarr:
+    url: http://sonarr:8989
+    api_key: ${SONARR_API_KEY}
+  tautulli:                      # watch data: not_watched_for, watched_within, watched_by, ...
+    url: http://tautulli:8181
+    api_key: ${TAUTULLI_API_KEY}
+  seerr:                         # requests: requested_by, requested_more_than, ...
+    url: http://seerr:5055
+    api_key: ${SEERR_API_KEY}
+  plex:                          # "Leaving Soon" collection + library refresh
+    url: http://plex:32400
+    token: ${PLEX_TOKEN}
+    leaving_soon_collection: Leaving Soon   # collection name
 
+# Rules run in file order. Every rule needs name, target, when and action.
+# Defaults: preview: true (report only), grace_period: 0, enabled: true.
+rules:
+  - name: Streaming movies
+    target: radarr
+    preview: true                # set to false to let this rule act automatically
+    grace_period: 14d            # 0, or <int>(h|d|w); matches wait in the queue first
+    leaving_soon_collection: true   # mirror the queue in Plex (requires plex)
+    action: delete_files         # deletes files, unmonitors, keeps the Radarr entry so the
+                                 # "Monitor again" rule below can bring it back
+    when:
+      streaming: my_providers
+    unless:                      # any true leaf skips the item
+      - tag: keep
 
-sonarr:
-  # The Radarr base url (include http of https)
-  url: 'http://localhost:8989'
-  # The Radarr api key
-  api_key: 123abc123abc123abc123abc123abc12
-  # Verify the SSL connection
-  verify_ssl: false
-  # Optional: exclude different titles. input the name the table output is showing.
-  # This will exclude the title in all actions (exclude and re-add) that excludarr does.
-  # This will prevent that excludarr will touch the title in Sonarr.
-  exclude:
-    - Queen of the South
-  # Optional: exclude different tags. input the name of the tag as shown in Sonarr
-  # This will exclude the titles with the specified tags in all actions (exclude and re-add) that excludarr does.
-  # This will prevent that excludarr will touch the titles with the specified tags in Sonarr.
-  tags_to_exclude:
-    - anime
-    - tv-shows
+  - name: Stale movies
+    target: radarr
+    preview: true
+    grace_period: 14d
+    action: delete               # removes the entry, so "Monitor again" never re-adds it
+    delete_files: true
+    import_exclusion: true       # and keeps lists from adding it back
+    when:
+      all:                       # any / all / not nest arbitrarily
+        - added_more_than: 180d
+        - not_watched_for: 30d
+    unless:
+      - tag: keep
+
+  - name: Unwatched seasons
+    target: sonarr
+    level: season                # series | season | episode (default: season)
+    preview: true
+    grace_period: 7d
+    action: delete_files
+    when:
+      all:
+        - added_more_than: 90d
+        - not_watched_for: 60d
+
+  - name: Trim old seasons
+    target: sonarr
+    level: season
+    action: unmonitor
+    when:
+      all:
+        - keep_latest: { seasons: 2 }   # matches seasons NOT among the latest 2 aired
+        - status: ended
+    unless:
+      - genre: [Anime, Documentary]
+
+  - name: Monitor again when it leaves streaming   # replaces v1 "re-add"
+    target: radarr
+    action: monitor
+    search: true                 # trigger a search after monitoring
+    when:
+      all:
+        - monitored: false
+        - not: { streaming: my_providers }
+
+  - name: Tag big unrated movies
+    target: radarr
+    action: tag
+    tag: review
+    when:
+      all:
+        - size_more_than: 20GB
+        - has_file: true
+        - year: { max: 2010 }
+        - not: { rating: { source: imdb, min: 6.0 } }
