@@ -1,0 +1,51 @@
+radarr:
+  # The Radarr base url (include http of https)
+  url: 'http://localhost:7878'
+  # The Radarr api key
+  api_key: 123abc123abc123abc123abc123abc12
+
+  # movies to add (title can be the title or `imdb:<id>` or `tmdb:<id>`)
+  movies:
+    # the title of the movie to add
+    - title: "Fast X"
+      # which tags to add, they will be created if they don't already exist
+      tags:
+        - exclude
+      # monitored status
+      monitored: true
+
+    - title: "From Beyond"
+      monitored: false
+
+    - title: "imdb:tt0090163"
+
+sonarr:
+  # The Sonarr base url (include http of https)
+  url: 'http://localhost:8989'
+  # The Sonarr api key
+  api_key: 123abc123abc123abc123abc123abc12
+
+  # series to add (title can be the title or `tvdb:<id>`)
+  series:
+    # the title of the series to add
+    - title: "Power"
+      # which tags to add, they will be created if they don't already exist
+      tags:
+        - "exclude"
+      # monitored status
+      monitored: true
+
+    - title: "South Park"
+      monitored: false
+
+    - title: "tvdb:81189"
+      monitored: true
+      # Optional: control which season and episode to monitor
+      # Season number must be in a string or "*" to select all other seasons not
+      # specified.
+      # you can configure each episode in an array or add a boolean to set if
+      # the season should be monitored or not.
+      advanced_monitored:
+        "1": [1,2,3,4]
+        "2": False
+        "*": True

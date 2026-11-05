@@ -1,22 +1,16 @@
 ---
-
-version: "3"
 services:
   excludarr:
-    image: haijeploeg/excludarr
+    image: excludarr/excludarr
     container_name: excludarr
     environment:
-      - GENERAL_FAST_SEARCH=true
-      - GENERAL_LOCALE=en_NL
-      - GENERAL_PROVIDERS=netflix, amazon prime video
-      - RADARR_URL=http://radarr.example.com:7878
       - RADARR_API_KEY=secret
-      - RADARR_VERIFY_SSL=false
-      - SONARR_URL=http://sonarr.example.com:8989
       - SONARR_API_KEY=secret
-      - SONARR_VERIFY_SSL=false
-      - SONARR_EXCLUDE="Queen of the South, Breaking Bad"
+      - TAUTULLI_API_KEY=secret
+      - SEERR_API_KEY=secret
+      - PLEX_TOKEN=secret
       - CRON_MODE=true
     volumes:
-      - ./crontab:/etc/excludarr/crontab
+      # excludarr.yml (see excludarr-example.yml), optional crontab, and the SQLite database
+      - ./config:/config
     restart: unless-stopped

@@ -1,4 +1,3 @@
 {
-    "python.pythonPath": "./env/bin/python",
     "python.terminal.activateEnvInCurrentTerminal": true,
 }

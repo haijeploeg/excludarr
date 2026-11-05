@@ -11,30 +11,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
+        python-version: '3.12'
 
-    - name: Install dependencies
+    - name: Install build tools
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
+        pip install build twine
 
-    - name: Build and publish to Test PyPi
+    - name: Build wheel and sdist
+      run: python -m build
+
+    - name: Publish to Test PyPi
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_TEST_TOKEN }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+      run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
-    - name: Build and publish to PyPi
+    - name: Publish to PyPi
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-      run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
+      run: twine upload dist/*

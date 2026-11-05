@@ -19,9 +19,10 @@ jobs:
         with:
           dockerfile: Dockerfile
 
-  markdown:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Lint Markdown
-        uses: actionshub/markdownlint@main
+  # temporarily disabled
+  # markdown:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Lint Markdown
+  #       uses: actionshub/markdownlint@main

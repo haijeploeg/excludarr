@@ -109,3 +109,9 @@ test.py
 
 # local configuration file
 .excludarr.yml
+
+# local docker volumes
+.docker
+
+providers.json
+.directory

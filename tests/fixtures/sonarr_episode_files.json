@@ -1,0 +1,6 @@
+[
+ {"id":900,"seasonNumber":0,"size":1},
+ {"id":901,"seasonNumber":1,"size":100},
+ {"id":902,"seasonNumber":2,"size":200,"dateAdded":"2023-03-01T00:00:00Z"},
+ {"id":903,"seasonNumber":2,"size":300,"dateAdded":"2023-04-01T00:00:00Z"}
+]

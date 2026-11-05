@@ -1,10 +1,8 @@
 ---
-
 #
 # This Docker compose file is for development purpose only
 #
 
-version: "3"
 services:
   radarr:
     image: linuxserver/radarr
@@ -14,11 +12,17 @@ services:
       - PGID=1000
       - TZ=Europe/Amsterdam
     volumes:
-        - radarr_config:/config
-        - radarr_movies:/movies:rw
+      - radarr_config:/config
+      - radarr_movies:/movies:rw
     ports:
       - 7878:7878
     restart: unless-stopped
+    healthcheck:
+      test: curl -sf localhost:7878/ping
+      interval: 1m30s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
 
   sonarr:
     image: linuxserver/sonarr
@@ -33,9 +37,52 @@ services:
     ports:
       - 8989:8989
     restart: unless-stopped
+    healthcheck:
+      test: curl -sf localhost:8989/ping
+      interval: 1m30s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
+
+  config_arr_setup:
+    build: ./config_arr_setup
+    profiles:
+      - setup
+    volumes:
+      - radarr_config:/radarr_config
+      - sonarr_config:/sonarr_config
+      - arr_setup_config:/config
+    links:
+      - radarr
+      - sonarr
+    environment:
+      - RADARR_DOMAIN=radarr
+      - SONARR_DOMAIN=sonarr
+    depends_on:
+      radarr:
+        condition: service_healthy
+        restart: true
+      sonarr:
+        condition: service_healthy
+        restart: true
+
+  arr_setup:
+    build: ./arr-setup
+    profiles:
+      - setup
+    volumes:
+      - arr_setup_config:/config
+    links:
+      - radarr
+      - sonarr
+    depends_on:
+      config_arr_setup:
+        condition: service_completed_successfully
+        restart: true
 
 volumes:
   radarr_config:
   radarr_movies:
   sonarr_config:
   sonarr_series:
+  arr_setup_config:

@@ -1,0 +1,9 @@
+[
+ {"id":100,"seriesId":10,"seasonNumber":0,"episodeNumber":1,"airDateUtc":"2008-01-01T00:00:00Z","hasFile":true,"episodeFileId":900,"monitored":false},
+ {"id":101,"seriesId":10,"seasonNumber":1,"episodeNumber":1,"airDateUtc":"2008-01-20T02:00:00Z","hasFile":true,"episodeFileId":901,"monitored":false},
+ {"id":102,"seriesId":10,"seasonNumber":2,"episodeNumber":1,"airDateUtc":"2009-03-08T02:00:00Z","hasFile":true,"episodeFileId":902,"monitored":true},
+ {"id":103,"seriesId":10,"seasonNumber":2,"episodeNumber":2,"airDateUtc":"2009-03-15T02:00:00Z","hasFile":true,"episodeFileId":903,"monitored":true},
+ {"id":104,"seriesId":10,"seasonNumber":2,"episodeNumber":3,"airDateUtc":"2009-03-22T02:00:00Z","hasFile":false,"episodeFileId":0,"monitored":true},
+ {"id":105,"seriesId":10,"seasonNumber":3,"episodeNumber":1,"airDateUtc":"2999-01-01T00:00:00Z","hasFile":false,"episodeFileId":0,"monitored":true},
+ {"id":106,"seriesId":10,"seasonNumber":3,"episodeNumber":2,"hasFile":false,"episodeFileId":0,"monitored":true}
+]

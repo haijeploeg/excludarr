@@ -1,17 +1,18 @@
-FROM python:3.10-alpine
+FROM python:3.12-alpine
 
-ENV PS1="\[\e[0;33m\]|> excludarr <| \[\e[1;35m\]\W\[\e[0m\] \[\e[0m\]# "
+WORKDIR /build
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --no-cache-dir . && rm -rf /build
 
-WORKDIR /src
-COPY . /src
-# hadolint ignore=DL3018
-RUN apk add --no-cache bash \
-    && pip install --no-cache-dir -r requirements.txt \
-    && python setup.py install \
-    && mkdir /etc/excludarr
+ENV EXCLUDARR_CONFIG=/config/excludarr.yml
+VOLUME /config
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Fallback crontab location for cron mode
+RUN mkdir -p /etc/excludarr
+COPY .examples/crontab /etc/excludarr/crontab
 
 WORKDIR /
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

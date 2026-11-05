@@ -1,0 +1,4 @@
+[
+ {"id":10,"title":"Breaking Bad","year":2008,"tvdbId":81189,"tmdbId":1396,"imdbId":"tt0903747","added":"2022-05-06T07:08:09Z","status":"ended","monitored":true,"tags":[2],"genres":["Drama"],"ratings":{"value":8.9,"votes":100},
+  "seasons":[{"seasonNumber":0,"monitored":false},{"seasonNumber":1,"monitored":false},{"seasonNumber":2,"monitored":true},{"seasonNumber":3,"monitored":true}]}
+]
