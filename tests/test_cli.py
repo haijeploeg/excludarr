@@ -1,11 +1,12 @@
 from typer.testing import CliRunner
 
+from excludarr import __version__
 from excludarr.cli import app
 
 
 def test_version():
     r = CliRunner().invoke(app, ["--version"])
-    assert r.exit_code == 0 and "2.0.0" in r.stdout
+    assert r.exit_code == 0 and __version__ in r.stdout
 
 
 def test_providers_list_with_locale_needs_no_config(monkeypatch, tmp_path):
