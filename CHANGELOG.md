@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.2.0 (2026-11-11)
+
+### Features
+
+- Add filtered list proxy for Radarr and Sonarr
+  ([`6087b41`](https://github.com/haijeploeg/excludarr/commit/6087b4167a3071725dab0218061e03e67c79412b))
+
+
 ## v2.1.0 (2026-11-11)
 
 ### Continuous Integration
