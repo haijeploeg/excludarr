@@ -1,0 +1,23 @@
+# Setup and startup: docs/list-proxy.md.
+# config/excludarr.yml: start with list-proxy-quickstart.yml. Put credentials in .env.
+services:
+  list-server:
+    image: ghcr.io/haijeploeg/excludarr
+    command: [serve, --host, 0.0.0.0]
+    env_file: .env
+    environment:
+      CRON_MODE: "false"
+    ports:
+      - "8989:8989"
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+  list-refresh:
+    image: ghcr.io/haijeploeg/excludarr
+    env_file: .env
+    environment:
+      CRON_MODE: "true"
+    volumes:
+      - ./config:/config
+      - ./list-proxy-crontab:/config/crontab:ro
+    restart: unless-stopped

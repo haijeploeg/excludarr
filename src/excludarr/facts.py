@@ -19,6 +19,7 @@ from excludarr.clients.sonarr import SonarrClient
 from excludarr.clients.tautulli import TautulliClient
 from excludarr.config import Config, ConfigError
 from excludarr.items import MediaItem
+from excludarr.lists.items import ListItem
 from excludarr.storage.repo import Repo
 
 log = logging.getLogger(__name__)
@@ -245,6 +246,9 @@ class Context:
             return None
         if item.kind == "movie":
             return [offers.get((0, 0), frozenset())]
+        if isinstance(item, ListItem):
+            units = [key for key in offers if key[0] >= 1]
+            return [offers[key] for key in units] if units else None
         if item.kind == "episode":
             units = [(item.season, item.episode)]
         else:

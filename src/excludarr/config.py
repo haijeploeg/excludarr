@@ -25,6 +25,7 @@ from excludarr.conditions import (
     parse_size,  # noqa: F401 - re-exported
     required_integrations,
 )
+from excludarr.list_config import ListProxyConfig
 
 ParsedCondition = Annotated[Condition, PlainValidator(parse_condition)]
 
@@ -143,6 +144,7 @@ class Config(BaseModel):
     integrations: Integrations
     rules: list[Rule] = []
     database: str | None = None
+    list_proxy: ListProxyConfig | None = None
 
     @model_validator(mode="after")
     def _check(self):
@@ -169,6 +171,16 @@ class Config(BaseModel):
                 raise ConfigError(
                     f"rule {r.name!r}: its conditions require {', '.join(missing)}, not configured"
                 )
+        if self.list_proxy and not self.profile.providers:
+            for rule in self.list_proxy.lists.values():
+                if any(
+                    leaf.name == "streaming" and leaf.params[0] == "my_providers"
+                    for c in [rule.when, *rule.unless]
+                    for leaf in leaves(c)
+                ):
+                    raise ConfigError(
+                        "list streaming uses my_providers but profile.providers is empty"
+                    )
         return self
 
 
@@ -213,10 +225,24 @@ def _subst(value):
     return re.sub(r"\$\{(\w+)\}", repl, value)
 
 
+class _UniqueLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        keys = set()
+        for key_node, _ in node.value:
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                continue
+            key = self.construct_object(key_node, deep=deep)
+            if isinstance(key, (str, int, float, bool, type(None))):
+                if key in keys:
+                    raise ConfigError("duplicate YAML mapping key")
+                keys.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
 def load_config(path: Path | None) -> tuple[Config, Path]:
     p = find_config_path(path)
     try:
-        data = yaml.safe_load(p.read_text()) or {}
+        data = yaml.load(p.read_text(), Loader=_UniqueLoader) or {}
     except yaml.YAMLError as e:
         mark = getattr(e, "problem_mark", None)
         location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""

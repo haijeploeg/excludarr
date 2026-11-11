@@ -1,0 +1,39 @@
+# Minimal two-feed setup. See docs/list-proxy.md for environment variables and startup.
+profile:
+  locale: nl_NL
+  providers: [Netflix]
+integrations:
+  radarr:
+    url: http://radarr:7878
+    api_key: ${RADARR_API_KEY}
+  sonarr:
+    url: http://sonarr:8989
+    api_key: ${SONARR_API_KEY}
+list_proxy:
+  api_key: ${LIST_PROXY_API_KEY}
+  tmdb_token: ${TMDB_READ_TOKEN}
+  sources:
+    trending_movies:
+      type: tmdb
+      mode: trending
+      media_type: movie
+      time_window: week
+      limit: 100
+    popular_series:
+      type: tmdb
+      mode: popular
+      media_type: series
+      limit: 100
+  lists:
+    movies:
+      target: radarr
+      sources: [trending_movies]
+      on_unknown: include
+      when:
+        streaming: my_providers
+    series:
+      target: sonarr
+      sources: [popular_series]
+      on_unknown: include
+      when:
+        streaming: my_providers

@@ -8,7 +8,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 
-from excludarr.storage.models import Cache, Exception_, History, Queue
+from excludarr.storage.models import Cache, Exception_, History, ListSnapshot, Queue
 
 MIGRATIONS = str(Path(__file__).parent / "migrations")
 
@@ -63,6 +63,17 @@ def _queue(r: Queue) -> QueueEntry:
     return QueueEntry(
         r.rule, r.item_key, r.title, r.size_bytes, r.enqueued_at, r.due_at, r.evidence
     )
+
+
+@dataclass
+class SnapshotEntry:
+    slug: str
+    payload: list[dict] | None
+    report: dict | None
+    fingerprint: str | None
+    successful_at: datetime | None
+    last_attempt_at: datetime
+    last_error: str | None
 
 
 class Repo:
@@ -181,3 +192,39 @@ class Repo:
         now = _now()
         with Session(self._engine) as s, s.begin():
             s.merge(Cache(key=key, value=value, fetched_at=now, expires_at=now + ttl))
+
+    def list_snapshot(self, slug: str) -> SnapshotEntry | None:
+        with Session(self._engine) as session:
+            row = session.get(ListSnapshot, slug)
+            return (
+                SnapshotEntry(
+                    **{name: getattr(row, name) for name in SnapshotEntry.__dataclass_fields__}
+                )
+                if row
+                else None
+            )
+
+    def list_publish(
+        self, slug: str, payload: list[dict], report: dict, fingerprint: str, at: datetime
+    ) -> None:
+        with Session(self._engine) as session, session.begin():
+            session.merge(
+                ListSnapshot(
+                    slug=slug,
+                    payload=payload,
+                    report=report,
+                    fingerprint=fingerprint,
+                    successful_at=at,
+                    last_attempt_at=at,
+                    last_error=None,
+                )
+            )
+
+    def list_failure(self, slug: str, error: str, at: datetime) -> None:
+        with Session(self._engine) as session, session.begin():
+            row = session.get(ListSnapshot, slug)
+            if row is None:
+                row = ListSnapshot(slug=slug)
+                session.add(row)
+            row.last_attempt_at = at
+            row.last_error = error
