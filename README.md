@@ -232,17 +232,63 @@ leads to an action.
 
 ```text
 excludarr [--config PATH] [--debug] [--version] COMMAND
-  run [--rule NAME] [--interactive] [-y] [--sort title|size|date]
-  preview [--rule NAME] [--sort title|size|date]
+  run [--progress] [--show-all] [--refresh] [--type movies|series] [--rule NAME] [--interactive] [-y] [--sort title|size|date]
+  preview [--progress] [--show-all] [--refresh] [--type movies|series] [--rule NAME] [--sort title|size|date]
   queue [--sort title|size|date]
   rescue ITEM_KEY --rule NAME [--forever | --once]
   history [--limit N]
+  cache status
   exceptions list | remove ITEM_KEY --rule NAME
   providers list [--locale nl_NL]
   config validate
 ```
 
+`--type movies` selects Radarr rules, and `--type series` selects Sonarr rules at every level.
+Without `--type`, both are included. You can combine it with `--rule`.
+The global `--debug` option also shows unknown results and counts for individual conditions.
+Use `excludarr --debug preview --rule "RULE NAME"` to log JustWatch candidates,
+ID matches, cached results and offers. Requester watch conditions also log whether
+they found a Seerr request and usable Plex/Tautulli watch data.
+When the configured JustWatch search locale has no matching TMDB or IMDb ID, Excludarr
+also searches `en_US`. Offers are always checked in the configured locale.
 `run --interactive` lets you skip individual items.
+
+Preview describes each rule's action and related cleanup. The `Next step` column predicts
+the configured actions and grace queue behavior, including newly queued items, future due
+dates and items due now. The preview command simulates actions even for rules with
+`preview: true`, without prompts or changes to media, queue entries or action history.
+Its banner explains that execution requires `run`; it also names rules that must first
+be changed to `preview: false`. Dates are UTC.
+Later matches covered by an earlier immediate removal are marked as skipped, assuming that
+the earlier action succeeds.
+
+`Matched size` is the size of matching media. The separate estimated space savings count
+each movie or Sonarr file once across rules, seasons and episodes. Savings are split between
+immediate execution and additional space after grace periods. Actions that keep files
+contribute zero. Unique titles count each movie or parent series once.
+Estimates use the current library snapshot, assume confirmed successful actions, and do not
+guarantee future savings because queued items are re-evaluated when due.
+
+Preview and run results show every match in a table that adapts to the terminal width.
+Each row shows the title, rule, size, match evidence and planned step or result.
+Add `--show-all` for extra context such as labels, file age, viewers and Seerr requests. Streaming
+context is limited to providers in `profile.providers` for the configured locale. Viewer
+details require Plex and Tautulli. Seerr request details include status and requester when
+available. Queue and history entries retain match evidence from when they were queued or acted
+on. History reports the bytes freed by the action separately from the original item size.
+
+Use `-o json` or `-o yaml` on the commands above for one complete report on stdout.
+Structured reports include all available match context regardless of `--show-all`.
+Confirmation and progress go to stderr. Pass `run -y` for unattended execution.
+
+Add `--progress` to `run` or `preview` to show the current phase, API waits, elapsed time
+and completed/total counts where available. The display pauses during confirmation.
+
+Run `excludarr cache status` to inspect when the local JustWatch cache was fetched and when
+it expires. Expired entries refresh the next time they are used. With `--debug`, cache
+status lists individual entries and preview or run logs lookups and retries. Add
+`--refresh` to preview or run to bypass cached JustWatch values for the selected operation.
+Failed refreshes leave existing cache entries intact and those values are unavailable to that run.
 
 </details>
 

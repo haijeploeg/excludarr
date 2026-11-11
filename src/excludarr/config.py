@@ -218,7 +218,9 @@ def load_config(path: Path | None) -> tuple[Config, Path]:
     try:
         data = yaml.safe_load(p.read_text()) or {}
     except yaml.YAMLError as e:
-        raise ConfigError(f"invalid YAML in {p}: {e}") from e
+        mark = getattr(e, "problem_mark", None)
+        location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
+        raise ConfigError(f"invalid YAML in {p}{location}") from e
     data = _subst(data)
     try:
         return Config.model_validate(data), p

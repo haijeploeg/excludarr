@@ -350,3 +350,36 @@ def test_rule_requires_when(minimal_cfg):
     minimal_cfg["rules"] = [rule()]
     with pytest.raises(ValidationError, match="when"):
         Config.model_validate(minimal_cfg)
+
+
+def test_evidence_uses_only_the_decisive_any_branch():
+    condition = parse_condition({"any": [{"year": {"min": 2020}}, {"streaming": "my_providers"}]})
+    evidence = []
+    ctx = FakeContext(streaming=[frozenset({(8, "FLATRATE"), (9, "BUY")})])
+    assert evaluate(condition, movie(), ctx, evidence=evidence) is True
+    assert [entry.condition for entry in evidence] == ["streaming"]
+    assert evidence[0].observed["matched_offers"] == [{"provider_id": 8, "type": "FLATRATE"}]
+
+
+def test_evidence_for_not_and_requester_play():
+    evidence = []
+    assert (
+        evaluate(
+            parse_condition({"not": {"monitored": False}}),
+            movie(monitored=True),
+            FakeContext(),
+            evidence=evidence,
+        )
+        is True
+    )
+    assert evidence[0].result is False
+    evidence.clear()
+    ctx = FakeContext(requests=[request(50)], watch=watch(43, {"alice": 43}))
+    assert (
+        evaluate(
+            parse_condition({"requester_watched_more_than": "30d"}), movie(), ctx, evidence=evidence
+        )
+        is True
+    )
+    assert evidence[0].observed["last_played_at"] == ago(43).isoformat()
+    assert evidence[0].observed["threshold_seconds"] == 30 * 86400

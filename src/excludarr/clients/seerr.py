@@ -20,6 +20,8 @@ class SeerrRequest:
     created_at: datetime
     requested_by: frozenset[str]
     seasons: frozenset[int]
+    requester_name: str | None = None
+    status: int | None = None
 
 
 def _parse(r: dict) -> SeerrRequest:
@@ -39,6 +41,13 @@ def _parse(r: dict) -> SeerrRequest:
             by[k].lower() for k in ("plexUsername", "displayName", "email") if by.get(k)
         ),
         seasons=frozenset(s["seasonNumber"] for s in r.get("seasons") or []),
+        status=r.get("status"),
+        requester_name=(
+            by.get("displayName")
+            or by.get("plexUsername")
+            or by.get("email")
+            or "Unknown requester"
+        ),
     )
 
 

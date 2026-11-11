@@ -21,6 +21,7 @@ class QueueEntry:
     size_bytes: int
     enqueued_at: datetime
     due_at: datetime
+    evidence: list[dict] | None = None
 
 
 @dataclass
@@ -41,6 +42,17 @@ class HistoryEntry:
     size_freed: int
     ok: bool
     detail: str
+    evidence: list[dict] | None = None
+    size_bytes: int | None = None
+    side_effect_errors: list[str] | None = None
+
+
+@dataclass
+class CacheEntry:
+    key: str
+    fetched_at: datetime | None
+    expires_at: datetime
+    value: Any = None
 
 
 def _now() -> datetime:
@@ -48,7 +60,9 @@ def _now() -> datetime:
 
 
 def _queue(r: Queue) -> QueueEntry:
-    return QueueEntry(r.rule, r.item_key, r.title, r.size_bytes, r.enqueued_at, r.due_at)
+    return QueueEntry(
+        r.rule, r.item_key, r.title, r.size_bytes, r.enqueued_at, r.due_at, r.evidence
+    )
 
 
 class Repo:
@@ -70,11 +84,18 @@ class Repo:
             return [_queue(r) for r in s.scalars(select(Queue).order_by(Queue.due_at))]
 
     def queue_add(
-        self, rule: str, item_key: str, title: str, size_bytes: int, due_at: datetime
+        self,
+        rule: str,
+        item_key: str,
+        title: str,
+        size_bytes: int,
+        due_at: datetime,
+        *,
+        evidence: list[dict] | None = None,
     ) -> None:
         with Session(self._engine) as s, s.begin():
             s.merge(Queue(rule=rule, item_key=item_key, title=title, size_bytes=size_bytes,
-                          enqueued_at=_now(), due_at=due_at))  # fmt: skip
+                          enqueued_at=_now(), due_at=due_at, evidence=evidence))  # fmt: skip
 
     def queue_remove(self, rule: str, item_key: str) -> None:
         with Session(self._engine) as s, s.begin():
@@ -110,10 +131,15 @@ class Repo:
         size_freed: int,
         ok: bool,
         detail: str,
+        *,
+        evidence: list[dict] | None = None,
+        size_bytes: int | None = None,
+        side_effect_errors: list[str] | None = None,
     ) -> None:
         with Session(self._engine) as s, s.begin():
             s.add(History(at=_now(), rule=rule, item_key=item_key, title=title, action=action,
-                          size_freed=size_freed, ok=ok, detail=detail))  # fmt: skip
+                          size_freed=size_freed, ok=ok, detail=detail, evidence=evidence,
+                          size_bytes=size_bytes, side_effect_errors=side_effect_errors))  # fmt: skip
 
     def history(self, limit: int = 100) -> list[HistoryEntry]:
         with Session(self._engine) as s:
@@ -122,16 +148,36 @@ class Repo:
             )
             return [
                 HistoryEntry(
-                    r.at, r.rule, r.item_key, r.title, r.action, r.size_freed, r.ok, r.detail
+                    r.at,
+                    r.rule,
+                    r.item_key,
+                    r.title,
+                    r.action,
+                    r.size_freed,
+                    r.ok,
+                    r.detail,
+                    r.evidence,
+                    r.size_bytes,
+                    r.side_effect_errors,
                 )
                 for r in rows
             ]
 
-    def cache_get(self, key: str) -> Any | None:
+    def cache_entry(self, key: str) -> CacheEntry | None:
         with Session(self._engine) as s:
             row = s.get(Cache, key)
-            return row.value if row and row.expires_at > _now() else None
+            return CacheEntry(row.key, row.fetched_at, row.expires_at, row.value) if row else None
+
+    def cache_metadata(self) -> list[CacheEntry]:
+        with Session(self._engine) as s:
+            stmt = select(Cache.key, Cache.fetched_at, Cache.expires_at).order_by(Cache.key)
+            return [CacheEntry(*row) for row in s.execute(stmt)]
+
+    def cache_get(self, key: str) -> Any | None:
+        row = self.cache_entry(key)
+        return row.value if row and row.expires_at > _now() else None
 
     def cache_set(self, key: str, value: Any, ttl: timedelta) -> None:
+        now = _now()
         with Session(self._engine) as s, s.begin():
-            s.merge(Cache(key=key, value=value, expires_at=_now() + ttl))
+            s.merge(Cache(key=key, value=value, fetched_at=now, expires_at=now + ttl))

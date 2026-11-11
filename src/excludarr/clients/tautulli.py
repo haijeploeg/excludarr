@@ -44,7 +44,9 @@ class TautulliClient:
                 },
             )["response"]
             if resp.get("result") != "success":
-                raise IntegrationError("tautulli", resp.get("message") or "request failed")
+                if resp.get("message") == "Invalid apikey":
+                    raise IntegrationError("tautulli", "Invalid apikey")
+                raise IntegrationError("tautulli", "API returned a failure")
             data = resp["data"]
             total = data["recordsFiltered"]
             page = data["data"]

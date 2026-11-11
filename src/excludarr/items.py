@@ -43,6 +43,8 @@ class MediaItem:
     rank_from_latest: int | None = None
     episodes: tuple[EpisodeRef, ...] = ()
     raw: dict = field(default_factory=dict)
+    file_sizes: dict[int, int] = field(default_factory=dict)
+    file_added_at: datetime | None = None
 
 
 def _now() -> datetime:
@@ -50,7 +52,10 @@ def _now() -> datetime:
 
 
 def _dt(s: str | None) -> datetime | None:
-    return datetime.fromisoformat(s) if s else None
+    if not s:
+        return None
+    date = datetime.fromisoformat(s)
+    return date.replace(tzinfo=UTC) if date.tzinfo is None else date.astimezone(UTC)
 
 
 def _ids(d: dict) -> dict:
@@ -79,6 +84,7 @@ def build_radarr_items(radarr: RadarrClient) -> list[MediaItem]:
                 arr_id=m["id"],
                 year=m.get("year") or None,
                 added=_dt(m.get("added")),
+                file_added_at=_dt((m.get("movieFile") or {}).get("dateAdded")),
                 size_bytes=m.get("sizeOnDisk") or 0,
                 has_file=bool(m.get("hasFile")),
                 monitored=bool(m.get("monitored")),
@@ -142,9 +148,9 @@ def build_sonarr_items(
         def unit(
             key, kind, title, unit_refs, monitored, common=common, file_added=file_added, **kw
         ):
+            dates = [d for r in unit_refs if (d := file_added.get(r.file_id))]
             if kind != "series":
                 # A season/episode was added when its newest file landed; no files: the series.
-                dates = [d for r in unit_refs if (d := file_added.get(r.file_id))]
                 common = common | {"added": max(dates, default=common["added"])}
             return MediaItem(
                 key=key,
@@ -154,6 +160,8 @@ def build_sonarr_items(
                 has_file=any(r.file_id for r in unit_refs),
                 monitored=monitored,
                 episodes=tuple(unit_refs),
+                file_sizes={r.file_id: r.size_bytes for r in unit_refs if r.file_id is not None},
+                file_added_at=max(dates, default=None),
                 **common,
                 **kw,
             )
@@ -169,6 +177,8 @@ def build_sonarr_items(
             # ponytail: series size counts all files incl. specials
             it.size_bytes = sum(sizes.values())
             it.has_file = bool(sizes)
+            it.file_sizes = sizes
+            it.file_added_at = max((d for d in file_added.values() if d is not None), default=None)
             items.append(it)
         elif level == "season":
             flags = {x["seasonNumber"]: bool(x.get("monitored")) for x in s.get("seasons", [])}

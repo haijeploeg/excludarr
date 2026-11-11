@@ -99,3 +99,18 @@ def test_retry_after_sanitized(sleeps, header, expected):
     )
     HttpClient("svc", BASE, {}, backoff=1).get("/x")
     assert sleeps == [expected]
+
+
+@respx.mock
+def test_wait_covers_retries_and_failures_without_logging_payloads(sleeps, caplog):
+    respx.get(f"{BASE}/x").mock(
+        side_effect=[httpx.Response(503, text="secret"), httpx.Response(403, text="secret")]
+    )
+    client = HttpClient("svc", BASE, {}, backoff=0)
+    waiting = []
+    client.on_wait = lambda name, active: waiting.append((name, active))
+    with caplog.at_level("DEBUG", logger=http.__name__), pytest.raises(IntegrationError) as exc:
+        client.get("/x")
+    assert waiting == [("svc", True), ("svc", False)]
+    assert "Retrying svc" in caplog.text and "HTTP 503" in caplog.text
+    assert "secret" not in caplog.text and "secret" not in str(exc.value)

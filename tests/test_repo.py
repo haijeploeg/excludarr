@@ -57,3 +57,49 @@ def test_migrations_idempotent(tmp_path):
     url = f"sqlite:///{tmp_path}/t.db"
     Repo(url).exception_add("r", "k", "T")
     assert Repo(url).exceptions_for("r") == {"k"}
+
+
+def test_reporting_migration_preserves_legacy_rows(tmp_path):
+    import sqlite3
+
+    from alembic import command
+    from alembic.config import Config
+
+    from excludarr.storage.repo import MIGRATIONS
+
+    path = tmp_path / "old.db"
+    url = f"sqlite:///{path}"
+    cfg = Config()
+    cfg.set_main_option("script_location", MIGRATIONS)
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "0001")
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO queue VALUES ('r', 'k', 'Film', 100, '2026-01-01', '2026-01-02')")
+        db.execute(
+            "INSERT INTO history VALUES (1, '2026-01-01', 'r', 'k', 'Film', 'delete', 100, 1, 'ok')"
+        )
+        db.execute("INSERT INTO cache VALUES ('old', '[]', '2090-01-01')")
+    repo = Repo(url)
+    assert repo.cache_entry("old").fetched_at is None
+    assert repo.cache_get("old") == []
+    queued = repo.queue_all()[0]
+    assert queued.due_at == datetime(2026, 1, 2, tzinfo=UTC) and queued.evidence is None
+    old = repo.history()[0]
+    assert old.size_freed == 100 and old.size_bytes is None
+    assert old.evidence is None and old.side_effect_errors is None
+    proof = [{"condition": "monitored", "result": True, "observed": {"monitored": True}}]
+    repo.history_add(
+        "r",
+        "k2",
+        "Film 2",
+        "delete",
+        100,
+        True,
+        "ok",
+        size_bytes=200,
+        evidence=proof,
+        side_effect_errors=["seerr: timeout"],
+    )
+    new = repo.history()[0]
+    assert new.size_bytes == 200 and new.evidence == proof
+    assert new.side_effect_errors == ["seerr: timeout"]

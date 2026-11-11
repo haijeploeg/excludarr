@@ -1,7 +1,11 @@
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from io import StringIO
 
 import pytest
 import yaml
+from rich.console import Console
 from typer.testing import CliRunner
 
 from excludarr import cli
@@ -70,13 +74,244 @@ def env(tmp_path, monkeypatch):
     }
 
 
-def test_preview_prints_condition_counts_and_totals(env):
+def test_preview_shows_overview_before_titles_and_per_item_evidence(env):
     r = env["invoke"]("preview")
     assert r.exit_code == 0, r.output
-    assert "PREVIEW" in r.output or "AUTO" in r.output
-    assert "condition" in r.output and "unknown" in r.output
-    assert "Total: 3 matches, 8.00 GB" in r.output
+    assert "Preview" in r.output
+    assert r.output.index("8.00 GB") < r.output.index("Bravo")
+    assert r.output.count("monitored") == 3
     assert env["executed"] == []
+
+
+def test_preview_with_rule_hides_diagnostic_counts_unless_debug(env):
+    env["write"](
+        [
+            {
+                "name": "r",
+                "target": "radarr",
+                "action": "delete",
+                "when": {"year": {"min": 2020}},
+            }
+        ]
+    )
+    r = env["invoke"]("preview", "--rule", "r")
+    assert r.exit_code == 0, r.output
+    assert "0 unique titles" in r.output
+    assert "Unknown" not in r.output and "3 unknown" not in r.output
+
+    debug = env["invoke"]("--debug", "preview", "--rule", "r")
+    assert debug.exit_code == 0, debug.output
+    assert "Unknown" in debug.output and "year min 2020 (0 matched, 3 unknown)" in debug.output
+
+
+def test_debug_preview_breaks_down_unknown_requester_watch_results(env, monkeypatch):
+    from types import SimpleNamespace
+
+    from excludarr.clients.seerr import SeerrRequest
+
+    env["write"](
+        [
+            {
+                "name": "Watched requests",
+                "target": "radarr",
+                "action": "delete",
+                "when": {"requester_watched_more_than": "30d"},
+            }
+        ],
+        integrations={
+            "radarr": {"url": "http://r", "api_key": "k"},
+            "seerr": {"url": "http://s", "api_key": "k"},
+            "plex": {"url": "http://p", "token": "t"},
+            "tautulli": {"url": "http://t", "api_key": "k"},
+        },
+    )
+    clients = Clients(
+        radarr=object(),
+        plex=SimpleNamespace(items_by_guid=dict),
+        tautulli=SimpleNamespace(history=list),
+        seerr=SimpleNamespace(
+            requests=lambda: [
+                SeerrRequest(
+                    i, i, "movie", i, None, datetime.now(UTC), frozenset({"viewer"}), frozenset()
+                )
+                for i in (2, 3)
+            ]
+        ),
+    )
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, cfg: clients))
+    result = env["invoke"]("--debug", "preview", "--rule", "Watched requests")
+    assert result.exit_code == 0, result.output
+    assert "1 Not requested" in result.output
+    assert "2 Watch history unavailable" in result.output
+
+
+def test_preview_simulates_savings_for_a_preview_only_rule(env, monkeypatch):
+    env["write"](
+        [
+            {
+                "name": "protected",
+                "target": "radarr",
+                "action": "delete_files",
+                "preview": True,
+                "when": {"monitored": True},
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        "excludarr.engine.build_radarr_items",
+        lambda client: [replace(MOVIES[0], has_file=True)],
+    )
+    sink = StringIO()
+    monkeypatch.setattr(cli, "Console", lambda: Console(file=sink, width=160))
+    result = env["invoke"]("preview")
+    assert result.exit_code == 0, result.output
+    output = sink.getvalue()
+    assert "Estimated space freed on execution 5.00 GB" in output
+    assert "Would execute" in output and "Preview only" not in output
+    assert "No actions will be executed" in output
+    assert "excludarr run" in output and "set preview: false for: protected" in output
+    assert env["executed"] == [] and env["repo"].queue_all() == []
+    assert env["repo"].history() == []
+
+
+@pytest.mark.parametrize("command", ["run", "preview"])
+def test_fast_progress_keeps_completed_counts_for_each_rule(env, monkeypatch, command):
+    import re
+
+    sink = StringIO()
+    monkeypatch.setattr(cli, "Console", lambda: Console(file=sink, force_terminal=True, width=100))
+    names = ("first", "second rule with a longer name")
+    env["write"](
+        [
+            {"name": name, "target": "radarr", "action": "delete", "when": {"monitored": True}}
+            for name in names
+        ]
+    )
+    result = env["invoke"](command)
+    assert result.exit_code == 0, result.output
+    assert "Evaluating" not in sink.getvalue()
+    sink.seek(0)
+    sink.truncate()
+    result = env["invoke"](command, "--progress")
+    assert result.exit_code == 0, result.output
+    rendered = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", sink.getvalue())
+    for name in names:
+        assert re.search(rf"✓ Evaluating {name} +3/3", rendered)
+    elapsed = list(
+        re.finditer(
+            r"✓ (?:Loading Radarr library|Evaluating first|Evaluating second rule with a longer name) +(?:3/3 +)?(\d+:\d{2}:\d{2})",
+            rendered,
+        )
+    )
+    assert elapsed
+    assert len({match.start(1) - match.start() for match in elapsed}) == 1
+    assert "Evaluating first · Bravo" not in rendered
+    heading = "EXCLUDARR  Preview" if command == "preview" else "EXCLUDARR  Run results"
+    assert "\n\n" + heading in rendered
+
+
+@pytest.mark.parametrize(
+    ("media_type", "shown", "hidden"),
+    [
+        ("movies", "Bravo", "Only on Sonarr"),
+        ("series", "Only on Sonarr", "Bravo"),
+    ],
+)
+def test_run_and_preview_filter_media_type(env, monkeypatch, media_type, shown, hidden):
+    series = replace(MOVIES[0], key="sonarr:series:1", kind="series", title="Only on Sonarr")
+    monkeypatch.setattr("excludarr.engine.build_sonarr_items", lambda client, level: [series])
+    rule = {"action": "delete", "preview": False, "when": {"monitored": True}}
+    env["write"](
+        [
+            {**rule, "name": "movies", "target": "radarr"},
+            {**rule, "name": "series", "target": "sonarr", "level": "series"},
+        ],
+        integrations={
+            "radarr": {"url": "http://r:7878", "api_key": "k"},
+            "sonarr": {"url": "http://s:8989", "api_key": "k"},
+        },
+    )
+    for key in ("radarr:movie:1", series.key):
+        env["repo"].queue_add("removed rule", key, key, 0, datetime.now(UTC))
+
+    result = env["invoke"]("preview", "--type", media_type)
+    assert result.exit_code == 0, result.output
+    assert shown in result.output and hidden not in result.output
+    assert env["repo"].history() == []
+
+    result = env["invoke"]("run", "--type", media_type, "-y")
+    assert result.exit_code == 0, result.output
+    assert shown in result.output and hidden not in result.output
+    assert {row.rule for row in env["repo"].history()} == {media_type}
+    other_key = series.key if media_type == "movies" else "radarr:movie:1"
+    assert set(env["repo"].queue_for("removed rule")) == {other_key}
+
+
+def test_run_shows_each_title_once_with_its_result(env):
+    result = env["invoke"]("run", "-y")
+    assert result.exit_code == 0, result.output
+    assert result.output.count("Bravo") == 1
+    assert "done" in result.output
+    assert "8.00 GB freed" in result.output
+
+
+@pytest.mark.parametrize("command", ["preview", "run"])
+def test_movie_table_contains_cached_provider_and_viewer_names(env, monkeypatch, command):
+    from types import SimpleNamespace
+
+    from excludarr.clients.justwatch import JustWatchClient
+    from excludarr.clients.plex import PlexItem
+    from excludarr.clients.seerr import SeerrRequest
+    from excludarr.clients.tautulli import HistoryRow
+
+    env["write"](profile={"providers": ["Netflix"]})
+    monkeypatch.setattr("excludarr.engine.build_radarr_items", lambda client: [MOVIES[0]])
+    env["repo"].cache_set("jw:match:MOVIE:1", "movie", timedelta(days=1))
+    env["repo"].cache_set(
+        "jw:offers:movie", [[0, 0, [[8, "FLATRATE"], [9, "FLATRATE"]]]], timedelta(days=1)
+    )
+    env["repo"].cache_set(
+        "jw:providers:en_US",
+        [
+            {"id": 8, "clear_name": "Netflix", "short_name": "nfx", "monetization_types": []},
+            {"id": 9, "clear_name": "Amazon", "short_name": "amz", "monetization_types": []},
+        ],
+        timedelta(days=1),
+    )
+    clients = Clients(
+        radarr=object(),
+        justwatch=JustWatchClient("en_US"),
+        plex=SimpleNamespace(
+            items_by_guid=lambda: {("movie", "tmdb://1"): PlexItem("1", "1", "movie")}
+        ),
+        tautulli=SimpleNamespace(
+            history=lambda: [
+                HistoryRow(datetime.now(UTC), "alice123", "Alice", "1", None, None, None, True),
+            ]
+        ),
+        seerr=SimpleNamespace(
+            requests=lambda: [
+                SeerrRequest(
+                    1,
+                    1,
+                    "movie",
+                    1,
+                    None,
+                    datetime.now(UTC),
+                    frozenset({"bob", "bobby"}),
+                    frozenset(),
+                    requester_name="Bobby",
+                )
+            ]
+        ),
+    )
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, cfg: clients))
+    result = env["invoke"](command, "--show-all", *(["-y"] if command == "run" else []))
+    assert result.exit_code == 0, result.output
+    assert "Netflix" in result.output and "Alice" in result.output
+    assert "alice123" not in result.output
+    assert "Amazon" not in result.output
+    assert "Bobby" in result.output
 
 
 def test_run_without_yes_aborts_on_no(env):
@@ -124,7 +359,8 @@ def test_sort_by_size(env, monkeypatch):
 
 def test_confirm_no_and_yes(env):
     r = env["invoke"]("run", input="n\n")
-    assert "Execute 3 actions (8.00 GB)?" in r.output and "Alpha" in r.output
+    assert "Execute 3 actions (0.00 GB estimated space freed)?" in r.output and "Alpha" in r.output
+    assert "Not executed" in r.output
     assert env["executed"] == []
     r = env["invoke"]("run", input="y\n")
     assert r.exit_code == 0 and len(env["executed"]) == 3
@@ -145,7 +381,10 @@ def test_exit_code_2_on_failed_action(env, monkeypatch):
     monkeypatch.setattr(
         "excludarr.engine.execute", lambda rule, item, ctx: ActionResult(False, 0, "boom")
     )
-    assert env["invoke"]("run", "-y").exit_code == 2
+    result = env["invoke"]("run", "-y")
+    assert result.exit_code == 2
+    assert result.output.index("3 failed") < result.output.index("Bravo")
+    assert "Failed" in result.output and "boom" in result.output
 
 
 def test_rescue_once_adds_no_exception(env):
@@ -243,3 +482,249 @@ def test_debug_silences_httpx_request_logging(env):
     env["invoke"]("--debug", "queue")
     assert logging.getLogger("httpx").level == logging.WARNING
     assert logging.getLogger("httpcore").level == logging.WARNING
+
+
+@pytest.mark.parametrize("format,parse", [("json", json.loads), ("yaml", yaml.safe_load)])
+def test_structured_output_and_confirmed_decline(env, format, parse):
+    preview = env["invoke"]("preview", "-o", format)
+    expanded = env["invoke"]("preview", "-o", format, "--show-all")
+    assert preview.exit_code == expanded.exit_code == 0
+    doc = parse(preview.stdout)
+    assert doc == parse(expanded.stdout)
+    assert doc["rules"][0]["matches"][0]["evidence"][0]["condition"] == "monitored"
+    result = env["invoke"]("run", "-o", format, input="n\n")
+    assert result.exit_code == 0
+    assert "Execute" in result.stderr and "Execute" not in result.stdout
+    assert "0.00 GB estimated space freed" in result.stderr
+    assert parse(result.stdout)["status"] == "declined"
+    assert env["executed"] == []
+
+
+def test_structured_queue_reports_changed_rule_and_original_evidence(env):
+    env["write"](
+        [
+            {
+                "name": "r",
+                "target": "radarr",
+                "preview": False,
+                "action": "unmonitor",
+                "when": {"monitored": True},
+            }
+        ]
+    )
+    proof = [{"condition": "streaming", "result": True, "observed": {}}]
+    env["repo"].queue_add(
+        "r", "radarr:movie:1", "Film", 100, datetime.now(UTC) + timedelta(days=1), evidence=proof
+    )
+    result = env["invoke"]("queue", "-o", "json")
+    assert result.exit_code == 0
+    item = json.loads(result.stdout)["items"][0]
+    assert item["planned_action"] == "Disable monitoring" and item["evidence"] == proof
+
+
+def test_cache_status_reports_fetch_and_expiry_from_local_db(env, monkeypatch):
+    def fail(cfg):
+        pytest.fail("cache status constructed integration clients")
+
+    monkeypatch.setattr(Clients, "from_config", fail)
+    env["repo"].cache_set("jw:offers:expired", [], timedelta(hours=-1))
+    env["repo"].cache_set("jw:offers:valid", [], timedelta(hours=1))
+    report = env["invoke"]("--debug", "cache", "status", "-o", "json")
+    assert report.exit_code == 0, report.output
+    doc = json.loads(report.stdout)
+    offers = next(group for group in doc["items"] if group["type"] == "Offers")
+    assert offers["entries"] == 2 and offers["due"] == 1
+    assert offers["oldest_fetched_at"] and offers["next_expiry_at"]
+    assert doc["diagnostics"]["entries"][0]["key"] == "jw:offers:expired"
+
+
+def test_failed_forced_refresh_cannot_match_but_independent_any_can(env, monkeypatch):
+    from types import SimpleNamespace
+
+    from excludarr.clients.http import IntegrationError
+
+    def fail():
+        calls.append("providers")
+        raise IntegrationError("justwatch", "offline")
+
+    calls = []
+    jw = SimpleNamespace(locale="en_US", providers=fail)
+    monkeypatch.setattr(
+        Clients, "from_config", classmethod(lambda cls, c: cls(radarr=object(), justwatch=jw))
+    )
+    env["write"](
+        [
+            {
+                "name": name,
+                "target": "radarr",
+                "action": "unmonitor",
+                "preview": False,
+                "when": when,
+            }
+            for name, when in (
+                ("streaming only", {"streaming": "my_providers"}),
+                ("independent", {"any": [{"streaming": "my_providers"}, {"monitored": True}]}),
+            )
+        ],
+        profile={"providers": ["Netflix"]},
+    )
+    env["repo"].cache_set(
+        "jw:providers:en_US",
+        [{"id": 8, "clear_name": "Netflix", "short_name": "nfx", "monetization_types": []}],
+        timedelta(days=1),
+    )
+    for item in MOVIES:
+        env["repo"].cache_set(f"jw:match:MOVIE:{item.tmdb_id}", "tm1", timedelta(days=1))
+    env["repo"].cache_set("jw:offers:tm1", [[0, 0, [[8, "FLATRATE"]]]], timedelta(days=1))
+    jw.search = lambda *args, **kwargs: (_ for _ in ()).throw(
+        IntegrationError("justwatch", "offline")
+    )
+    result = env["invoke"]("run", "--refresh", "-y", "-o", "json")
+    assert result.exit_code == 0, result.output
+    guarded, independent = json.loads(result.stdout)["rules"]
+    assert guarded["matches"] == []
+    assert len(independent["matches"]) == len(MOVIES)
+    assert independent["matches"][0]["evidence"][0]["condition"] == "monitored"
+    assert calls == ["providers"]
+    assert len(env["executed"]) == len(MOVIES)
+
+
+@pytest.mark.parametrize("format,parse", [("json", json.loads), ("yaml", yaml.safe_load)])
+def test_structured_run_reports_completed_actions_on_abort(env, format, parse):
+    env["write"](
+        [
+            {
+                "name": name,
+                "target": "radarr",
+                "action": "unmonitor",
+                "preview": False,
+                "when": {"monitored": True},
+            }
+            for name in ("first", "second")
+        ]
+    )
+    result = env["invoke"]("run", "-o", format, input="y\n")
+    assert result.exit_code == 1
+    report = parse(result.stdout)
+    assert report["status"] == "aborted"
+    assert report["rules"][0]["matches"][0]["outcome"]["status"] == "done"
+    assert report["rules"][1]["matches"][0]["outcome"]["status"] == "not_executed"
+
+
+@pytest.mark.parametrize("format,parse", [("json", json.loads), ("yaml", yaml.safe_load)])
+def test_structured_rescue_prompt_keeps_stdout_parseable(env, format, parse):
+    env["repo"].queue_add("r", "radarr:movie:1", "Film", 100, datetime.now(UTC))
+    result = env["invoke"]("rescue", "radarr:movie:1", "--rule", "r", "-o", format, input="\n")
+    assert result.exit_code == 0
+    assert parse(result.stdout)["items"][0]["forever"] is False
+    assert "Rescue" in result.stderr
+
+
+def test_structured_progress_keeps_report_stream_clean(env, monkeypatch):
+    from types import SimpleNamespace
+
+    import httpx
+    import respx
+
+    from excludarr.clients.http import HttpClient
+
+    monkeypatch.setattr(cli, "Console", lambda **kwargs: Console(force_terminal=True, **kwargs))
+    update = cli.Progress.update
+
+    def render_wait(progress, *args, **kwargs):
+        if kwargs.get("waiting"):
+            kwargs["refresh"] = True
+        return update(progress, *args, **kwargs)
+
+    monkeypatch.setattr(cli.Progress, "update", render_wait)
+    client = SimpleNamespace(http=HttpClient("radarr", "http://r", {}))
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, cfg: cls(radarr=client)))
+
+    def load(radarr):
+        radarr.http.get("/movie")
+        return MOVIES
+
+    monkeypatch.setattr("excludarr.engine.build_radarr_items", load)
+    with respx.mock:
+        respx.get("http://r/movie").mock(return_value=httpx.Response(200))
+        result = env["invoke"]("preview", "--progress", "-o", "json")
+    assert result.exit_code == 0
+    assert "Waiting for Radarr" in result.stderr
+    assert "3/3" in result.stderr
+    assert json.loads(result.stdout)["summary"]["matches"] == 3
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ("queue",),
+        ("history",),
+        ("cache", "status"),
+        ("exceptions", "list"),
+        ("config", "validate"),
+    ],
+)
+def test_structured_read_commands_emit_one_report(env, monkeypatch, command):
+    from types import SimpleNamespace
+
+    jw = SimpleNamespace(locale="en_US", providers=list)
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, c: cls(justwatch=jw)))
+    result = env["invoke"](*command, "-o", "json")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["command"] == " ".join(command)
+
+
+def test_structured_configuration_error_does_not_echo_yaml_source(env):
+    env["path"].write_text("api_key: private_token: bad\n")
+    result = env["invoke"]("config", "validate", "-o", "json")
+    assert result.exit_code == 1
+    report = json.loads(result.stdout)
+    assert report["status"] == "error"
+    assert "invalid YAML" in report["errors"][0]
+    assert "private_token" not in result.output
+
+
+@pytest.mark.parametrize("width", [120, 180])
+def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
+    library = [movie(i, f"Example movie {i:02d}", 1) for i in range(1, 11)]
+    library[-1] = replace(
+        library[-1], title="Example movie 10 with a long title that must wrap across multiple lines"
+    )
+    monkeypatch.setattr("excludarr.engine.build_radarr_items", lambda client: library)
+    env["write"](
+        [
+            {
+                "name": name,
+                "target": "radarr",
+                "action": "delete_files",
+                "when": {"added_more_than": "180d"},
+            }
+            for name in ("First rule", "Second rule", "Third rule")
+        ]
+    )
+    sink = StringIO()
+    monkeypatch.setattr(
+        cli, "Console", lambda **kwargs: Console(file=sink, width=width, height=18, **kwargs)
+    )
+    result = env["invoke"]("preview")
+    assert result.exit_code == 0, result.output
+    compact = sink.getvalue()
+    assert compact.count("Example movie") == 30
+    assert compact.count("multiple") == 3
+    assert max(map(len, compact.splitlines())) == width
+    assert "Next step" in compact and "Match evidence" in compact
+    assert all(compact.count(name) == 11 for name in ("First rule", "Second rule", "Third rule"))
+    assert compact.count("Clean up related download queue entries") == 1
+    assert "10 unique titles" in compact and "After grace" not in compact
+    assert "2020-01-01T" not in compact
+    sink.seek(0)
+    sink.truncate()
+    assert env["invoke"]("preview", "--show-all").exit_code == 0
+    expanded = sink.getvalue()
+    assert expanded.count("Example movie") == 30
+    assert "2020-01-01T" in expanded
+    structured = env["invoke"]("preview", "-o", "json")
+    assert structured.exit_code == 0, structured.output
+    report = json.loads(structured.stdout)
+    assert sum(len(rule["matches"]) for rule in report["rules"]) == 30
+    assert env["executed"] == []

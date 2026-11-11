@@ -1,10 +1,14 @@
 """Shared sync HTTP client with retry/backoff and uniform errors."""
 
+import logging
 import math
 import time
+from collections.abc import Callable
 from typing import Any
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 RETRY_STATUSES = {429, 502, 503, 504}
 
@@ -35,18 +39,38 @@ class HttpClient:
         self.name = name
         self.retries = retries
         self.backoff = backoff
+        self.on_wait: Callable[[str, bool], None] | None = None
         self._client = httpx.Client(
             base_url=base_url, headers=headers, verify=verify, timeout=timeout
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        observer = self.on_wait
+        if observer is None:
+            return self._request_with_retries(method, path, **kwargs)
+        observer(self.name, True)
+        try:
+            return self._request_with_retries(method, path, **kwargs)
+        finally:
+            observer(self.name, False)
+
+    def _request_with_retries(self, method: str, path: str, **kwargs: Any) -> Any:
         for attempt in range(self.retries + 1):
             delay = self.backoff * 2**attempt
             try:
                 resp = self._client.request(method, path, **kwargs)
             except httpx.TransportError as e:
+                cause = type(e).__name__
                 if attempt == self.retries:
-                    raise IntegrationError(self.name, f"request failed: {e}") from e
+                    raise IntegrationError(self.name, f"request failed ({cause})") from e
+                log.debug(
+                    "Retrying %s in %gs after %s (retry %d/%d)",
+                    self.name,
+                    delay,
+                    cause,
+                    attempt + 1,
+                    self.retries,
+                )
                 _sleep(delay)
                 continue
             if resp.status_code < 400:
@@ -55,9 +79,7 @@ class HttpClient:
                 try:
                     return resp.json()
                 except ValueError as e:
-                    raise IntegrationError(
-                        self.name, f"invalid JSON: {resp.text[:200]}", resp.status_code
-                    ) from e
+                    raise IntegrationError(self.name, "invalid JSON", resp.status_code) from e
             if resp.status_code in RETRY_STATUSES and attempt < self.retries:
                 try:
                     ra = float(resp.headers["Retry-After"])
@@ -65,11 +87,17 @@ class HttpClient:
                         delay = min(ra, 60.0)
                 except (KeyError, ValueError):
                     pass
+                log.debug(
+                    "Retrying %s in %gs after HTTP %d (retry %d/%d)",
+                    self.name,
+                    delay,
+                    resp.status_code,
+                    attempt + 1,
+                    self.retries,
+                )
                 _sleep(delay)
                 continue
-            raise IntegrationError(
-                self.name, f"HTTP {resp.status_code}: {resp.text[:200]}", resp.status_code
-            )
+            raise IntegrationError(self.name, f"HTTP {resp.status_code}", resp.status_code)
 
     def get(self, path: str, params: dict | None = None) -> Any:
         return self._request("GET", path, params=params)

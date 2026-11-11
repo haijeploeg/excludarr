@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from excludarr.clients.http import IntegrationError
@@ -97,6 +98,18 @@ def test_watch_movie(tmp_path, minimal_cfg):
     assert w.fully_watched and w.play_count == 1
 
 
+def test_movie_viewers_use_display_names_without_aliases_or_partial_plays(tmp_path, minimal_cfg):
+    rows = [
+        row("m1", 4),
+        row("m1", 2),
+        replace(row("m1", 1, watched=False), user="Alice", friendly_name="Alice"),
+        replace(row("m1", 1), user="Carol", friendly_name=""),
+    ]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    item = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=11)
+    assert ctx.watch(item).watched_users == ["Bobby", "Carol"]
+
+
 def test_watch_unknown_when_tautulli_fails(tmp_path, minimal_cfg, caplog):
     t = FakeTautulli(exc=IntegrationError("tautulli", "down"))
     ctx = make_ctx(tmp_path, minimal_cfg, plex=FakePlex(PLEX), tautulli=t)
@@ -117,6 +130,25 @@ def test_watch_none_when_not_in_plex(tmp_path, minimal_cfg):
     ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([]))
     other = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=99)
     assert ctx.watch(other) is None
+    assert ctx.movie_viewer_labels(other) == ["Not in Plex"]
+
+
+def test_viewer_labels_keep_service_failures_unknown(tmp_path, minimal_cfg):
+    item = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=11)
+
+    class BrokenPlex:
+        def items_by_guid(self):
+            raise IntegrationError("plex", "down")
+
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=BrokenPlex(), tautulli=FakeTautulli([]))
+    assert ctx.movie_viewer_labels(item) is None
+    ctx = make_ctx(
+        tmp_path,
+        minimal_cfg,
+        plex=FakePlex(PLEX),
+        tautulli=FakeTautulli(exc=IntegrationError("tautulli", "down")),
+    )
+    assert ctx.movie_viewer_labels(item) is None
 
 
 def test_watch_none_when_not_configured(tmp_path, minimal_cfg):
@@ -145,14 +177,30 @@ def test_requests_season_filter(tmp_path, minimal_cfg):
     assert [r.id for r in ctx.requests(by_tvdb)] == [3]
 
 
+def test_requester_labels_match_seasons_and_deduplicate_names(tmp_path, minimal_cfg):
+    requests = [
+        replace(sreq(1, 10, {1}), requester_name="Alice"),
+        replace(sreq(2, 10, {2}), requester_name="Bob"),
+        replace(sreq(3, 10, {1}), requester_name="Alice"),
+        replace(sreq(4, 10, {1}, "movie"), requester_name="Carol"),
+    ]
+    ctx = make_ctx(tmp_path, minimal_cfg, seerr=FakeSeerr(requests))
+    assert ctx.requester_labels(season()) == ["Alice"]
+    assert ctx.requester_labels(replace(season(), kind="series", season=None)) == ["Alice", "Bob"]
+    assert ctx.requester_labels(replace(season(), kind="movie")) == ["Carol"]
+    assert ctx.requester_labels(replace(season(), season=3)) == []
+
+
 def test_requests_none_when_unconfigured_or_failed(tmp_path, minimal_cfg):
     assert make_ctx(tmp_path, minimal_cfg).requests(season()) is None
+    assert make_ctx(tmp_path, minimal_cfg).requester_labels(season()) == ["Not configured"]
 
     class Boom:
         def requests(self):
             raise IntegrationError("seerr", "down")
 
     assert make_ctx(tmp_path, minimal_cfg, seerr=Boom()).requests(season()) is None
+    assert make_ctx(tmp_path, minimal_cfg, seerr=Boom()).requester_labels(season()) is None
 
 
 def mk_series(**kw):

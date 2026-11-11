@@ -34,6 +34,7 @@ def test_requests_paging():
     assert route.calls[0].request.headers["X-Api-Key"] == "k"
     assert out[0].created_at == datetime(2024, 5, 1, 10, tzinfo=UTC)
     assert out[0].requested_by == {"bob", "bobby"}
+    assert out[0].requester_name == "Bobby"
     assert out[0].seasons == {1}
 
 

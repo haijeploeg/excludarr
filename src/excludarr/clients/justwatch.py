@@ -56,7 +56,7 @@ def _defensive(fn):
         try:
             return fn(*a, **kw)
         except (KeyError, TypeError, AttributeError, ValueError) as e:
-            raise IntegrationError("justwatch", f"unexpected response shape: {e!r}") from e
+            raise IntegrationError("justwatch", "unexpected response shape") from e
 
     return wrapper
 
@@ -78,7 +78,7 @@ class JustWatchClient:
             "/graphql", json={"operationName": operation, "query": query, "variables": variables}
         )
         if not isinstance(res, dict) or "errors" in res or "data" not in res:
-            raise IntegrationError("justwatch", f"GraphQL error: {str(res)[:200]}")
+            raise IntegrationError("justwatch", "GraphQL error")
         return res["data"]
 
     @_defensive
@@ -95,16 +95,22 @@ class JustWatchClient:
 
     @_defensive
     def search(
-        self, title: str, kind: Literal["MOVIE", "SHOW"], first: int = 5
+        self,
+        title: str,
+        kind: Literal["MOVIE", "SHOW"],
+        first: int = 5,
+        *,
+        locale: str | None = None,
     ) -> list[SearchResult]:
+        language, country = normalize_locale(locale or self.locale).split("_")
         data = self._gql(
             "GetSearchTitles",
             SEARCH_QUERY,
             {
                 "first": first,
                 "searchTitlesFilter": {"searchQuery": title, "objectTypes": [kind]},
-                "language": self.language,
-                "country": self.country,
+                "language": language,
+                "country": country,
             },
         )
         out = []

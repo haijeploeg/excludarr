@@ -1,9 +1,11 @@
 """Facts about library items, looked up lazily from integrations."""
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from threading import Lock
 from typing import Any, Literal
 
 import httpx
@@ -53,28 +55,69 @@ class WatchStats:
     play_count: int
     fully_watched: bool
     last_by_user: dict[str, datetime]
+    watched_users: list[str] = field(default_factory=list)
 
 
 class Context:
-    def __init__(self, config: Config, clients: Clients, repo: Repo, now: datetime):
+    def __init__(
+        self, config: Config, clients: Clients, repo: Repo, now: datetime, *, refresh: bool = False
+    ):
         self.config = config
         self.clients = clients
         self.repo = repo
         self.now = now
+        self.refresh = refresh
+        self._cache_locks: dict[str, Lock] = {}
         self._memo: dict[Any, Any] = {}
         self._failed: set[str] = set()
+
+    def _cached(self, key: str, fetch, ttl: timedelta, *, legacy_key: str | None = None) -> Any:
+        # Different Sonarr units may share the same JustWatch lookup.
+        with self._cache_locks.setdefault(key, Lock()):
+            if key in self._memo:
+                return self._memo[key]
+            if not self.refresh:
+                now = datetime.now(UTC)
+                for candidate in (key, legacy_key):
+                    if candidate is None:
+                        continue
+                    entry = self.repo.cache_entry(candidate)
+                    if entry is None:
+                        continue
+                    fresh = entry.expires_at > now
+                    log.debug(
+                        "Cache %s %s (fetched %s; expires %s)",
+                        "hit" if fresh else "expired",
+                        candidate,
+                        entry.fetched_at or "unavailable",
+                        entry.expires_at,
+                    )
+                    if fresh and (candidate == key or entry.value):
+                        self._memo[key] = entry.value
+                        return entry.value
+            log.debug("Cache %s %s", "forced refresh" if self.refresh else "fetch", key)
+            value = fetch()
+            self.repo.cache_set(key, value, ttl)
+            if log.isEnabledFor(logging.DEBUG):
+                entry = self.repo.cache_entry(key)
+                if entry is not None:
+                    log.debug(
+                        "Cache stored %s (fetched %s; expires %s)",
+                        key,
+                        entry.fetched_at,
+                        entry.expires_at,
+                    )
+            self._memo[key] = value
+            return value
 
     # --- providers -------------------------------------------------------
     def _providers(self) -> list[Provider]:
         jw = self.clients.justwatch
         key = f"jw:providers:{jw.locale}"
-        cached = self.repo.cache_get(key)
-        if cached is None:
-            cached = [vars(p) for p in jw.providers()]
-            self.repo.cache_set(key, cached, WEEK)
-        return [Provider(**p) for p in cached]
+        entries = self._cached(key, lambda: [vars(p) for p in jw.providers()], WEEK)
+        return [Provider(**p) for p in entries]
 
-    def provider_ids(self, names: list[str] | Literal["my_providers"]) -> set[int]:
+    def provider_ids(self, names: list[str] | Literal["my_providers"]) -> set[int] | None:
         if names == "my_providers":
             names = self.config.profile.providers
         memo_key = ("providers", *names)
@@ -82,8 +125,11 @@ class Context:
             self._memo[memo_key] = self._resolve_providers(names)
         return self._memo[memo_key]
 
-    def _resolve_providers(self, names: list[str]) -> set[int]:
-        by_name = {p.clear_name.lower(): p.id for p in self._providers()}
+    def _resolve_providers(self, names: list[str]) -> set[int] | None:
+        catalogue = self.provider_names()
+        if catalogue is None:
+            return None
+        by_name = {name.lower(): pid for pid, name in catalogue.items()}
         ids = set()
         for n in names:
             if n.lower() not in by_name:
@@ -94,45 +140,87 @@ class Context:
             ids.add(by_name[n.lower()])
         return ids
 
+    def provider_names(self) -> dict[int, str] | None:
+        key = "provider_names_by_id"
+        if key not in self._memo:
+            providers = (
+                self._once("provider catalogue", self._providers)
+                if self.refresh
+                else self._providers()
+            )
+            self._memo[key] = None if providers is None else {p.id: p.clear_name for p in providers}
+        return self._memo[key]
+
     # --- streaming -------------------------------------------------------
     def _match(self, item: MediaItem, kind: Literal["MOVIE", "SHOW"]) -> str | None:
         ident = item.tmdb_id or item.imdb_id
         if not ident:
+            log.debug("JustWatch match for %r: missing TMDB and IMDb IDs", item.title)
             return None
-        key = f"jw:match:{kind}:{ident}"
-        node_id = self.repo.cache_get(key)
-        if node_id is None:
+        jw = self.clients.justwatch
+        key = f"jw:match:v2:{jw.locale}:{kind}:{ident}"
+
+        def fetch():
             node_id = ""
-            for r in self.clients.justwatch.search(item.base_title, kind):
-                if (item.tmdb_id and r.tmdb_id == item.tmdb_id) or (
-                    item.imdb_id and r.imdb_id == item.imdb_id
-                ):
-                    node_id = r.node_id
+            locales = (jw.locale, "en_US") if jw.locale != "en_US" else ("en_US",)
+            for locale in locales:
+                results = jw.search(item.base_title, kind, locale=locale)
+                log.debug(
+                    "JustWatch search for %r in %s (TMDB=%s IMDb=%s): %r",
+                    item.base_title,
+                    locale,
+                    item.tmdb_id,
+                    item.imdb_id,
+                    results,
+                )
+                for r in results:
+                    if (item.tmdb_id and r.tmdb_id == item.tmdb_id) or (
+                        item.imdb_id and r.imdb_id == item.imdb_id
+                    ):
+                        node_id = r.node_id
+                        break
+                if node_id:
                     break
-            self.repo.cache_set(key, node_id, WEEK)
+            return node_id
+
+        node_id = self._cached(key, fetch, WEEK, legacy_key=f"jw:match:{kind}:{ident}")
+        log.debug("JustWatch match for %r: %s", item.title, node_id or "no matching ID")
         return node_id or None
 
     def _offers(self, node_id: str, kind: Literal["MOVIE", "SHOW"]) -> dict[tuple[int, int], Avail]:
         """Offers per (season, episode); a movie is stored under (0, 0)."""
         key = f"jw:offers:{node_id}"
-        cached = self.repo.cache_get(key)
-        if cached is None:
+
+        def fetch():
             jw = self.clients.justwatch
             if kind == "MOVIE":
                 offers = {(0, 0): jw.movie_offers(node_id)}
             else:
                 offers = jw.show_offers(node_id)
-            cached = [[s, e, sorted(a)] for (s, e), a in offers.items()]
-            self.repo.cache_set(key, cached, DAY)
+            return [[s, e, sorted(a)] for (s, e), a in offers.items()]
+
+        cached = self._cached(key, fetch, DAY)
         return {(s, e): frozenset((p, m) for p, m in a) for s, e, a in cached}
 
     def streaming(self, item: MediaItem) -> list[Avail] | None:
         """One Avail per atomic unit; [] means "no aired units", None means unknown."""
-        if "justwatch" in self._failed:
-            return None
         memo_key = ("streaming", item.key)
         if memo_key not in self._memo:
-            self._memo[memo_key] = self._streaming(item)
+            if "justwatch" in self._failed:
+                log.debug("JustWatch offers for %r: skipped after service failure", item.title)
+                return None
+            result = self._streaming(item)
+            self._memo[memo_key] = result
+            if log.isEnabledFor(logging.DEBUG):
+                if result is None:
+                    log.debug("JustWatch offers for %r: unknown", item.title)
+                else:
+                    log.debug(
+                        "JustWatch offers for %r: %d units, provider IDs and offer types %s",
+                        item.title,
+                        len(result),
+                        sorted({offer for unit in result for offer in unit}),
+                    )
         return self._memo[memo_key]
 
     def _streaming(self, item: MediaItem) -> list[Avail] | None:
@@ -148,7 +236,7 @@ class Context:
             if isinstance(e.__cause__, httpx.TransportError) or (e.status or 0) >= 500:
                 if "justwatch" not in self._failed:
                     self._failed.add("justwatch")
-                    log.warning("JustWatch unavailable, streaming is unknown this run: %s", e)
+                    log.warning("JustWatch unavailable, further streaming lookups skipped: %s", e)
                 return None
             log.warning("JustWatch lookup failed for %s: %s", item.title, e)
             return None
@@ -167,11 +255,49 @@ class Context:
             ]
         return [offers.get(u, frozenset()) for u in units]
 
-    def prefetch_streaming(self, items: list[MediaItem]) -> None:
+    def prefetch_streaming(
+        self,
+        items: list[MediaItem],
+        progress: Callable[[str, int, int | None], None] = lambda message, done, total: None,
+    ) -> None:
         distinct = {(i.kind == "movie", i.tmdb_id, i.imdb_id): i for i in items}
+        progress("Checking JustWatch availability", 0, len(distinct))
         with ThreadPoolExecutor(max_workers=4) as pool:
-            # streaming() never raises for lookup failures, so results can be dropped.
-            list(pool.map(self.streaming, distinct.values()))
+            futures = [pool.submit(self.streaming, item) for item in distinct.values()]
+            for done, future in enumerate(as_completed(futures), 1):
+                future.result()
+                progress("Checking JustWatch availability", done, len(distinct))
+
+    def streaming_labels(self, item: MediaItem) -> list[str] | None:
+        """Configured providers and offer types, with aired episode coverage."""
+        configured = {name.casefold() for name in self.config.profile.providers}
+        if not configured:
+            return []
+        if not self.clients.justwatch:
+            return ["Not configured"]
+        units = self.streaming(item)
+        if units is None:
+            return None
+        if not any(units):
+            return []
+        providers = self._once("provider_names", self._providers)
+        if providers is None:
+            return None
+        names = {p.id: p.clear_name for p in providers if p.clear_name.casefold() in configured}
+        counts: dict[tuple[int, str], int] = {}
+        for offers in units:
+            for offer in offers:
+                if offer[0] in names:
+                    counts[offer] = counts.get(offer, 0) + 1
+        labels = []
+        for (provider, kind), count in counts.items():
+            label = names[provider]
+            if kind != "FLATRATE":
+                label += f" ({kind.lower()})"
+            if count < len(units):
+                label += f" · {count}/{len(units)} episodes"
+            labels.append(label)
+        return sorted(labels, key=str.casefold)
 
     # --- watch / requests ------------------------------------------------
     def _once(self, name: str, fetch) -> Any | None:
@@ -203,8 +329,19 @@ class Context:
                 return by_guid[(kind, f"{prefix}://{ident}")]
         return None
 
+    def movie_viewer_labels(self, item: MediaItem) -> list[str] | None:
+        if not (self.clients.plex and self.clients.tautulli):
+            return ["Not configured"]
+        watched = self.watch(item)
+        if watched is not None:
+            return watched.watched_users
+        if "plex" not in self._failed and self.plex_item(item) is None:
+            return ["Not in Plex"]
+        return None
+
     def watch(self, item: MediaItem) -> WatchStats | None:
         if not (self.clients.tautulli and self.clients.plex):
+            log.debug("Watch history for %r: Plex or Tautulli not configured", item.title)
             return None
         units = {
             (e.season, e.number)
@@ -215,7 +352,12 @@ class Context:
             return None  # nothing aired: nothing to watch, so watch facts are unknown
         plex_item = self.plex_item(item)
         history = self._once("tautulli", self.clients.tautulli.history)
-        if plex_item is None or history is None:
+        if plex_item is None:
+            reason = "Plex lookup failed" if "plex" in self._failed else "no matching Plex item"
+            log.debug("Watch history for %r: %s", item.title, reason)
+            return None
+        if history is None:
+            log.debug("Watch history for %r: Tautulli history unavailable", item.title)
             return None
         if item.kind == "movie":
             rows = [r for r in history if r.rating_key == plex_item.rating_key]
@@ -239,12 +381,29 @@ class Context:
             for name in filter(None, (r.user.lower(), r.friendly_name.lower())):
                 if name not in last_by_user or r.at > last_by_user[name]:
                     last_by_user[name] = r.at
+        users = {}
+        for r in sorted(watched, key=lambda row: row.at):
+            name = r.friendly_name or r.user or "Unknown viewer"
+            users[(r.user or name).casefold()] = name
         return WatchStats(
             last_watched=max((r.at for r in rows), default=None),
             play_count=len(watched),
             fully_watched=full,
             last_by_user=last_by_user,
+            watched_users=sorted(set(users.values()), key=str.casefold),
         )
+
+    def requester_labels(self, item: MediaItem) -> list[str] | None:
+        if not self.clients.seerr:
+            return ["Not configured"]
+        requests = self.requests(item)
+        if requests is None:
+            return None
+        names = {
+            request.requester_name or next(iter(sorted(request.requested_by)), "Unknown requester")
+            for request in requests
+        }
+        return sorted(names, key=str.casefold)
 
     def requests(self, item: MediaItem) -> list[SeerrRequest] | None:
         if not self.clients.seerr:

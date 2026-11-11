@@ -119,3 +119,6 @@ providers.json
 # Track CLAUDE.md and superpowers docs despite global ignores
 !CLAUDE.md
 !docs/superpowers/
+
+# Local Excludarr configuration and diagnostics
+/sandbox/

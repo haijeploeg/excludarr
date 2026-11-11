@@ -110,6 +110,17 @@ def rule(name="r", **kw):
     }
 
 
+def test_preview_progress_covers_loading_and_all_items_including_exceptions(env):
+    ctx = env["make"]([rule()], movies=[movie(1), movie(2)])
+    ctx.repo.exception_add("r", "radarr:movie:2", "M2")
+    events = []
+    [report] = engine.run(ctx, dry_run=True, progress=lambda *event: events.append(event))
+    assert events[0] == ("Loading Radarr library", 0, None)
+    assert [(done, total) for _, done, total in events[1:]] == [(0, 2), (1, 2), (2, 2)]
+    assert [match.item.key for match in report.matches] == ["radarr:movie:1"]
+    assert env["executed"] == []
+
+
 def test_preview_rule_changes_nothing(env):
     ctx = env["make"]([rule(preview=True, grace_period="14d")], movies=[movie(1)])
     [report] = engine.run(ctx, dry_run=False)
@@ -120,6 +131,71 @@ def test_preview_rule_changes_nothing(env):
     ctx = env["make"]([rule()], movies=[movie(1)])
     engine.run(ctx, dry_run=True)
     assert env["executed"] == [] and env["repo"].history() == []
+
+
+@pytest.mark.parametrize("protected", [False, True])
+def test_preview_plans_queue_dates_without_mutating_state(env, protected):
+    ctx = env["make"](
+        [rule(grace_period="14d", preview=protected)], movies=[movie(1), movie(2), movie(3)]
+    )
+    ctx.repo.queue_add("r", "radarr:movie:2", "M2", 100, NOW - timedelta(hours=1))
+    ctx.repo.queue_add("r", "radarr:movie:3", "M3", 100, NOW + timedelta(days=2))
+    before = {key: row.due_at for key, row in ctx.repo.queue_for("r").items()}
+    [report] = engine.run(ctx, dry_run=True)
+    assert [(m.next_step, m.due_at) for m in report.matches] == [
+        ("queue", NOW + timedelta(days=14)),
+        ("execute", NOW - timedelta(hours=1)),
+        ("wait", NOW + timedelta(days=2)),
+    ]
+    assert {key: row.due_at for key, row in ctx.repo.queue_for("r").items()} == before
+    assert ctx.repo.history() == [] and env["executed"] == []
+
+
+def test_preview_marks_later_removal_match_skipped_and_counts_space_once(env):
+    from excludarr.preview import estimated_savings
+
+    item = movie(1)
+    item.has_file = True
+    ctx = env["make"](
+        [
+            rule("first", action="delete_files"),
+            rule("second", delete_files=True),
+        ],
+        movies=[item],
+    )
+    reports = engine.run(ctx, dry_run=True)
+    assert [report.matches[0].next_step for report in reports] == ["execute", "skip"]
+    assert estimated_savings(reports) == (1, 100, 0)
+    assert env["executed"] == []
+
+
+def test_preview_command_simulates_protected_rules_without_actions_or_prompts(env):
+    from excludarr.preview import estimated_savings
+
+    item = movie(1)
+    item.has_file = True
+    ctx = env["make"](
+        [
+            rule("first", preview=True, action="delete_files"),
+            rule("second", action="delete_files"),
+        ],
+        movies=[item],
+    )
+
+    def unexpected_prompt(matches):
+        raise AssertionError("Preview must not prompt")
+
+    reports = engine.run(ctx, dry_run=True, confirm=unexpected_prompt, select=unexpected_prompt)
+    assert [report.matches[0].next_step for report in reports] == ["execute", "skip"]
+    assert estimated_savings(reports) == (1, 100, 0)
+    assert ctx.repo.queue_all() == [] and ctx.repo.history() == [] and env["executed"] == []
+    assert ctx.config.rules[0].preview is True
+
+    # The protection remains effective when using run.
+    reports = engine.run(ctx, dry_run=False)
+    assert reports[0].matches[0].next_step == "preview"
+    assert reports[0].executed == []
+    assert len(reports[1].executed) == 1
 
 
 def test_grace_enqueues_then_executes_when_due(env):
@@ -353,7 +429,7 @@ def test_preflight_unknown_provider_in_second_rule_acts_on_nothing(env, monkeypa
     assert env["executed"] == []
     # provider_ids is memoized per run
     assert ctx.provider_ids(["Netflix"]) == ctx.provider_ids(["Netflix"]) == {8}
-    assert len(calls) == 2  # one failed lookup, one successful (memoized) lookup
+    assert len(calls) == 1  # both name lookups use the same provider catalogue
 
 
 def test_preflight_builds_all_item_sets_before_acting(env, monkeypatch):

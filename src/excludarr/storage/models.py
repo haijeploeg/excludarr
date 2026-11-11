@@ -37,6 +37,7 @@ class Queue(Base):
     size_bytes: Mapped[int] = mapped_column(Integer)
     enqueued_at: Mapped[datetime] = mapped_column(UTCDateTime)
     due_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    evidence: Mapped[list[dict] | None] = mapped_column(JSON)
 
 
 class Exception_(Base):
@@ -58,6 +59,9 @@ class History(Base):
     size_freed: Mapped[int] = mapped_column(Integer)
     ok: Mapped[bool] = mapped_column(Boolean)
     detail: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[list[dict] | None] = mapped_column(JSON)
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    side_effect_errors: Mapped[list[str] | None] = mapped_column(JSON)
 
 
 class Cache(Base):
@@ -65,3 +69,4 @@ class Cache(Base):
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[object] = mapped_column(JSON)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime)

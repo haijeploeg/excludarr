@@ -5,15 +5,19 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from excludarr.facts import Context
     from excludarr.items import MediaItem
+
+log = logging.getLogger(__name__)
 
 _DURATION = re.compile(r"(\d+)([hdw])")
 _SIZE = re.compile(r"(\d+(?:\.\d+)?)(MB|GB|TB)")
@@ -62,6 +66,27 @@ class Leaf:
 
 
 Condition = All | Any_ | Not | Leaf
+
+
+@dataclass(frozen=True)
+class Evidence:
+    condition: str
+    result: bool
+    observed: dict[str, Any]
+    label: str = ""
+
+
+@dataclass(frozen=True)
+class Observation:
+    result: bool
+    values: dict[str, Any]
+
+
+class UnknownReason(StrEnum):
+    NOT_REQUESTED = "Not requested"
+    SEERR_UNAVAILABLE = "Seerr request data unavailable"
+    WATCH_UNAVAILABLE = "Watch history unavailable"
+    OTHER = "Other unavailable data"
 
 
 # --- param parsers ---------------------------------------------------------
@@ -154,48 +179,137 @@ def _in_range(x: float | None, rng: tuple[float | None, float | None]) -> bool |
     return (lo is None or x >= lo) and (hi is None or x <= hi)
 
 
-def _rating_eval(p, item: MediaItem, ctx: Context) -> bool | None:
+def _field(name: str, compare: Callable):
+    def ev(p, item: MediaItem, ctx: Context) -> Observation | None:
+        value = getattr(item, name)
+        result = compare(p, value, ctx)
+        if result is None:
+            return None
+        if isinstance(value, datetime):
+            return Observation(
+                result,
+                {
+                    name: value.isoformat(),
+                    "age_seconds": int((ctx.now - value).total_seconds()),
+                },
+            )
+        elif isinstance(value, frozenset):
+            value = sorted(value)
+        return Observation(result, {name: value})
+
+    return ev
+
+
+def _rating_eval(p, item: MediaItem, ctx: Context) -> Observation | None:
     source, *rng = p
-    return _in_range(item.ratings.get(source if item.kind == "movie" else "sonarr"), tuple(rng))
+    source = source if item.kind == "movie" else "sonarr"
+    rating = item.ratings.get(source)
+    result = _in_range(rating, tuple(rng))
+    return None if result is None else Observation(result, {"source": source, "rating": rating})
 
 
-def _streaming_eval(p, item: MediaItem, ctx: Context) -> bool | None:
+def _streaming_eval(p, item: MediaItem, ctx: Context) -> Observation | None:
     units = ctx.streaming(item)
     if units is None:
         return None
-    if not units:
-        return False  # nothing aired: never vacuously "on provider"
     providers, mons = p
-    ids = ctx.provider_ids(providers)
-    return all(any(pid in ids and m in mons for pid, m in u) for u in units)
+    ids = ctx.provider_ids(providers) if units else set()
+    if ids is None:
+        return None
+    qualified = [
+        {(pid, kind) for pid, kind in unit if pid in ids and kind in mons} for unit in units
+    ]
+    offers = sorted({offer for unit in qualified for offer in unit})
+    names = ctx.provider_names() if offers and hasattr(ctx, "provider_names") else {}
+    return Observation(
+        bool(units) and all(qualified),
+        {
+            "matched_offers": [
+                {"provider_id": pid, "type": kind}
+                | ({"provider": names[pid]} if pid in names else {})
+                for pid, kind in offers
+            ],
+            "covered_units": sum(bool(unit) for unit in qualified),
+            "total_units": len(units),
+        },
+    )
 
 
-def _watch(fn: Callable) -> Callable:
-    def ev(p, item: MediaItem, ctx: Context) -> bool | None:
+def _timestamp(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _watch(fn: Callable, observed: Callable):
+    def ev(p, item: MediaItem, ctx: Context) -> Observation | None:
         w = ctx.watch(item)
-        return None if w is None else fn(p, w, ctx)
+        return None if w is None else Observation(fn(p, w, ctx), observed(p, w, ctx))
 
     return ev
 
 
-def _requests(fn: Callable) -> Callable:
-    def ev(p, item: MediaItem, ctx: Context) -> bool | None:
+def _watch_age(p, w, ctx):
+    return {
+        "last_played_at": _timestamp(w.last_watched),
+        "age_seconds": (ctx.now - w.last_watched).total_seconds() if w.last_watched else None,
+        "threshold_seconds": p.total_seconds(),
+    }
+
+
+def _requests(fn: Callable, observed: Callable):
+    def ev(p, item: MediaItem, ctx: Context) -> Observation | UnknownReason:
         reqs = ctx.requests(item)
-        return fn(p, reqs, ctx) if reqs else None
+        if reqs is None:
+            return UnknownReason.SEERR_UNAVAILABLE
+        if not reqs:
+            return UnknownReason.NOT_REQUESTED
+        return Observation(fn(p, reqs, ctx), observed(p, reqs, ctx))
 
     return ev
 
 
-def _requester_watched_more_than(p, item: MediaItem, ctx: Context) -> bool | None:
+def _request_age(p, reqs, ctx):
+    newest = _newest(reqs)
+    return {
+        "requested_at": newest.isoformat(),
+        "age_seconds": (ctx.now - newest).total_seconds(),
+        "threshold_seconds": p.total_seconds(),
+    }
+
+
+def _requester_watched_more_than(p, item: MediaItem, ctx: Context) -> Observation | UnknownReason:
     reqs = ctx.requests(item)
+    if reqs is None:
+        log.debug("Requester watch for %r: unknown (Seerr request data unavailable)", item.title)
+        return UnknownReason.SEERR_UNAVAILABLE
     if not reqs:
-        return None  # no request record is unknown, not False (spec §4)
+        log.debug(
+            "Requester watch for %r: unknown (no matching Seerr request, TMDB=%s TVDB=%s)",
+            item.title,
+            item.tmdb_id,
+            item.tvdb_id,
+        )
+        return UnknownReason.NOT_REQUESTED
     latest = max(reqs, key=lambda r: r.created_at)
     w = ctx.watch(item)
     if w is None:
-        return None
+        log.debug("Requester watch for %r: unknown (watch history unavailable)", item.title)
+        return UnknownReason.WATCH_UNAVAILABLE
     seen = [w.last_by_user[n] for n in latest.requested_by if n in w.last_by_user]
-    return bool(seen) and ctx.now - max(seen) > p
+    if not seen:
+        log.debug("Requester watch for %r: no completed play linked to the requester", item.title)
+        return Observation(False, {"requester": latest.requester_name, "last_played_at": None})
+    last_play = max(seen)
+    age = ctx.now - last_play
+    log.debug("Requester watch for %r: last play age %s, required age > %s", item.title, age, p)
+    return Observation(
+        age > p,
+        {
+            "requester": latest.requester_name,
+            "last_played_at": last_play.isoformat(),
+            "age_seconds": age.total_seconds(),
+            "threshold_seconds": p.total_seconds(),
+        },
+    )
 
 
 def _newest(reqs) -> Any:
@@ -211,7 +325,7 @@ SEERR = frozenset({"seerr"})
 @dataclass(frozen=True)
 class LeafSpec:
     parse: Callable[[Any], Any]
-    evaluate: Callable[[Any, MediaItem, Context], bool | None]
+    evaluate: Callable[[Any, MediaItem, Context], bool | Observation | UnknownReason | None]
     label: Callable[[Any], str]  # renders the raw param
     integrations: frozenset[str] = frozenset()
     targets: frozenset[str] | None = None  # None: any target
@@ -238,49 +352,53 @@ def _range_label(v: dict) -> str:
 LEAVES: dict[str, LeafSpec] = {
     "added_more_than": LeafSpec(
         parse_duration,
-        lambda p, i, c: None if i.added is None else c.now - i.added > p,
+        _field("added", lambda p, v, c: None if v is None else c.now - v > p),
         lambda v: f"added more than {v} ago",
     ),
     "added_less_than": LeafSpec(
         parse_duration,
-        lambda p, i, c: None if i.added is None else c.now - i.added < p,
+        _field("added", lambda p, v, c: None if v is None else c.now - v < p),
         lambda v: f"added less than {v} ago",
     ),
     "size_more_than": LeafSpec(
-        parse_size, lambda p, i, c: i.size_bytes > p, lambda v: f"larger than {v}"
+        parse_size, _field("size_bytes", lambda p, v, c: v > p), lambda v: f"larger than {v}"
     ),
     "size_less_than": LeafSpec(
-        parse_size, lambda p, i, c: i.size_bytes < p, lambda v: f"smaller than {v}"
+        parse_size, _field("size_bytes", lambda p, v, c: v < p), lambda v: f"smaller than {v}"
     ),
     "tag": LeafSpec(
         _strs,
-        lambda p, i, c: bool(p & {t.lower() for t in i.tags}),
+        _field("tags", lambda p, v, c: bool(p & {t.lower() for t in v})),
         lambda v: f"tagged {_list_label(v)}",
     ),
     "genre": LeafSpec(
         _strs,
-        lambda p, i, c: bool(p & {g.lower() for g in i.genres}),
+        _field("genres", lambda p, v, c: bool(p & {g.lower() for g in v})),
         lambda v: f"genre {_list_label(v)}",
     ),
     "year": LeafSpec(
-        _range, lambda p, i, c: _in_range(i.year, p), lambda v: f"year {_range_label(v)}"
+        _range, _field("year", lambda p, v, c: _in_range(v, p)), lambda v: f"year {_range_label(v)}"
     ),
     "rating": LeafSpec(_rating, _rating_eval, lambda v: f"rating {_range_label(v)}"),
     "monitored": LeafSpec(
-        _bool, lambda p, i, c: i.monitored == p, lambda v: "monitored" if v else "not monitored"
+        _bool,
+        _field("monitored", lambda p, v, c: v == p),
+        lambda v: "monitored" if v else "not monitored",
     ),
     "has_file": LeafSpec(
-        _bool, lambda p, i, c: i.has_file == p, lambda v: "has file" if v else "has no file"
+        _bool,
+        _field("has_file", lambda p, v, c: v == p),
+        lambda v: "has file" if v else "has no file",
     ),
     "status": LeafSpec(
         _status,
-        lambda p, i, c: None if i.ended is None else i.ended == p,
+        _field("ended", lambda p, v, c: None if v is None else v == p),
         lambda v: f"series {v}",
         targets=frozenset({"sonarr"}),
     ),
     "keep_latest": LeafSpec(
         _keep_latest,
-        lambda p, i, c: i.rank_from_latest is not None and i.rank_from_latest >= p[1],
+        _field("rank_from_latest", lambda p, v, c: v is not None and v >= p[1]),
         lambda v: "not among the latest " + " ".join(f"{n} {u}" for u, n in v.items()),
         targets=frozenset({"sonarr"}),
         levels=lambda p: {p[0].removesuffix("s")},
@@ -288,46 +406,61 @@ LEAVES: dict[str, LeafSpec] = {
     "streaming": LeafSpec(_streaming, _streaming_eval, _streaming_label),
     "not_watched_for": LeafSpec(
         parse_duration,
-        _watch(lambda p, w, c: w.last_watched is None or c.now - w.last_watched > p),
+        _watch(lambda p, w, c: w.last_watched is None or c.now - w.last_watched > p, _watch_age),
         lambda v: f"not watched for {v}",
         TAUTULLI,
     ),
     "watched_within": LeafSpec(
         parse_duration,
-        _watch(lambda p, w, c: w.last_watched is not None and c.now - w.last_watched <= p),
+        _watch(
+            lambda p, w, c: w.last_watched is not None and c.now - w.last_watched <= p, _watch_age
+        ),
         lambda v: f"watched within {v}",
         TAUTULLI,
     ),
     "watched_by": LeafSpec(
-        _user, _watch(lambda p, w, c: p in w.last_by_user), lambda v: f"watched by {v}", TAUTULLI
+        _user,
+        _watch(
+            lambda p, w, c: p in w.last_by_user,
+            lambda p, w, c: {"user": p, "last_played_at": _timestamp(w.last_by_user.get(p))},
+        ),
+        lambda v: f"watched by {v}",
+        TAUTULLI,
     ),
     "play_count": LeafSpec(
         _range,
-        _watch(lambda p, w, c: _in_range(w.play_count, p)),
+        _watch(
+            lambda p, w, c: _in_range(w.play_count, p), lambda p, w, c: {"play_count": w.play_count}
+        ),
         lambda v: f"play count {_range_label(v)}",
         TAUTULLI,
     ),
     "fully_watched": LeafSpec(
         _bool,
-        _watch(lambda p, w, c: w.fully_watched == p),
+        _watch(
+            lambda p, w, c: w.fully_watched == p, lambda p, w, c: {"fully_watched": w.fully_watched}
+        ),
         lambda v: "fully watched" if v else "not fully watched",
         TAUTULLI,
     ),
     "requested_by": LeafSpec(
         _user,
-        _requests(lambda p, reqs, c: any(p in r.requested_by for r in reqs)),
+        _requests(
+            lambda p, reqs, c: any(p in r.requested_by for r in reqs),
+            lambda p, reqs, c: {"matched_requests": [r.id for r in reqs if p in r.requested_by]},
+        ),
         lambda v: f"requested by {v}",
         SEERR,
     ),
     "requested_more_than": LeafSpec(
         parse_duration,
-        _requests(lambda p, reqs, c: c.now - _newest(reqs) > p),
+        _requests(lambda p, reqs, c: c.now - _newest(reqs) > p, _request_age),
         lambda v: f"requested more than {v} ago",
         SEERR,
     ),
     "requested_less_than": LeafSpec(
         parse_duration,
-        _requests(lambda p, reqs, c: c.now - _newest(reqs) < p),
+        _requests(lambda p, reqs, c: c.now - _newest(reqs) < p, _request_age),
         lambda v: f"requested less than {v} ago",
         SEERR,
     ),
@@ -386,17 +519,46 @@ def describe(cond: Condition) -> str:
     return "(" + sep.join(describe(c) for c in cond.children) + ")"
 
 
-def evaluate(cond: Condition, item: MediaItem, ctx: Context) -> bool | None:
+def evaluate(
+    cond: Condition,
+    item: MediaItem,
+    ctx: Context,
+    *,
+    unknown_reasons: set[UnknownReason] | None = None,
+    evidence: list[Evidence] | None = None,
+) -> bool | None:
     if isinstance(cond, Leaf):
-        return LEAVES[cond.name].evaluate(cond.params, item, ctx)
+        result = LEAVES[cond.name].evaluate(cond.params, item, ctx)
+        if isinstance(result, Observation):
+            if evidence is not None:
+                evidence.append(Evidence(cond.name, result.result, result.values, describe(cond)))
+            return result.result
+        if isinstance(result, UnknownReason):
+            if unknown_reasons is not None:
+                unknown_reasons.add(result)
+            return None
+        if result is None and unknown_reasons is not None:
+            unknown_reasons.add(UnknownReason.OTHER)
+        return result
     if isinstance(cond, Not):
-        v = evaluate(cond.child, item, ctx)
+        v = evaluate(cond.child, item, ctx, unknown_reasons=unknown_reasons, evidence=evidence)
         return None if v is None else not v
     decisive = isinstance(cond, Any_)  # True decides Any_, False decides All
     unknown = False
+    reasons = set() if unknown_reasons is not None else None
+    proof = []
     for c in cond.children:
-        v = evaluate(c, item, ctx)
+        child_proof = [] if evidence is not None else None
+        v = evaluate(c, item, ctx, unknown_reasons=reasons, evidence=child_proof)
         if v is decisive:
+            if evidence is not None and child_proof:
+                evidence.extend(child_proof)
             return decisive
+        if child_proof:
+            proof.extend(child_proof)
         unknown = unknown or v is None
+    if not unknown and evidence is not None:
+        evidence.extend(proof)
+    if unknown and unknown_reasons is not None and reasons:
+        unknown_reasons.update(reasons)
     return None if unknown else not decisive
