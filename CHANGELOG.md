@@ -2,6 +2,32 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-11-11)
+
+### Continuous Integration
+
+- Group all dependabot updates into one PR
+  ([`afe8ea5`](https://github.com/haijeploeg/excludarr/commit/afe8ea578a37b6aad2c8a3f211d4dd27263fc53e))
+
+- Only bump pip requirements when needed
+  ([`664e18b`](https://github.com/haijeploeg/excludarr/commit/664e18bd83506848a095d97f8ec140d24406438b))
+
+### Documentation
+
+- Refresh README with demo and recipes
+  ([`527c295`](https://github.com/haijeploeg/excludarr/commit/527c295d039b422205d4e96fed7e3286d902d807))
+
+### Features
+
+- **cli**: Add detailed reporting and preview outcome predictions
+  ([`f4ec193`](https://github.com/haijeploeg/excludarr/commit/f4ec1936bf46e75375bf9544f42689abf01ef03e))
+
+### Testing
+
+- Compare --version against __version__
+  ([`1007254`](https://github.com/haijeploeg/excludarr/commit/10072544183a58dddddaed864c02c3bf6fd4ee0a))
+
+
 ## v2.0.1 (2026-11-05)
 
 ### Bug Fixes
