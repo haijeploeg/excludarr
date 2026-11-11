@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from excludarr.facts import Context
     from excludarr.items import MediaItem
 
+from excludarr.lists.items import ListItem
+
 log = logging.getLogger(__name__)
 
 _DURATION = re.compile(r"(\d+)([hdw])")
@@ -182,6 +184,8 @@ def _in_range(x: float | None, rng: tuple[float | None, float | None]) -> bool |
 def _field(name: str, compare: Callable):
     def ev(p, item: MediaItem, ctx: Context) -> Observation | None:
         value = getattr(item, name)
+        if isinstance(item, ListItem) and value is None:
+            return None
         result = compare(p, value, ctx)
         if result is None:
             return None
@@ -202,8 +206,8 @@ def _field(name: str, compare: Callable):
 
 def _rating_eval(p, item: MediaItem, ctx: Context) -> Observation | None:
     source, *rng = p
-    source = source if item.kind == "movie" else "sonarr"
-    rating = item.ratings.get(source)
+    source = source if item.kind == "movie" or isinstance(item, ListItem) else "sonarr"
+    rating = (item.ratings or {}).get(source)
     result = _in_range(rating, tuple(rng))
     return None if result is None else Observation(result, {"source": source, "rating": rating})
 

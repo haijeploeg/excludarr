@@ -25,7 +25,8 @@ deletes, unmonitors, monitors, tags or import-excludes whatever matches your rul
 - 🙋 **Requests** (optional): "requested by Bob", or "the requester watched it a month ago", via Seerr.
 - 🛟 **Safe by default**: new rules only preview. Then a grace period, a Plex "Leaving Soon" collection and a rescue command.
 - 🎯 **Season and episode rules** for Sonarr, not just whole series.
-- 🔒 **Never guesses**: when a lookup fails or data is missing, nothing happens.
+- 🔒 **Library actions require known data**: an unknown rule result never executes an action.
+- 📋 **[Filtered import lists](docs/list-proxy.md)**: serve feeds to Radarr/Sonarr; configure whether unknown filter results are included or excluded.
 - 🐳 **Runs anywhere**: as a CLI, or in Docker on a cron schedule.
 
 ## 🚀 Quick start
@@ -99,6 +100,23 @@ Put a `crontab` in `/config`. cron starts jobs without the container environment
 ```
 
 </details>
+
+## Filtered list proxy
+
+Filter source lists **before** Radarr/Sonarr import titles. Sources include Trakt
+Popular/Trending, saved lists and Watchlist; StevenLu; Plex Watchlist; and TMDB
+Popular/Trending and saved lists.
+
+See the **[list proxy setup guide](docs/list-proxy.md)** for credentials, a minimal
+config, CLI and Docker startup, exact feed URLs, output meanings and troubleshooting.
+Start with [the minimal two-feed config](.examples/list-proxy-quickstart.yml);
+[the complete source example](.examples/list-proxy-example.yml) is a reference for
+adding more sources.
+
+`excludarr lists refresh` updates stored feeds and exits. `excludarr serve` stays
+running and serves them under `/lists/NAME?apikey=YOUR_FEED_KEY`; it does not refresh
+them. Run both independently, with the same config and database. The guide's Docker
+example uses a server container and an hourly refresh container.
 
 ## 🍳 Recipes
 

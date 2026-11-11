@@ -1,0 +1,73 @@
+# Complete source reference: remove unused sources and replace saved-list IDs.
+# For a minimal working setup, use list-proxy-quickstart.yml and docs/list-proxy.md.
+profile:
+  locale: en_US
+  providers: [Netflix]
+integrations:
+  radarr:
+    url: http://radarr:7878
+    api_key: ${RADARR_API_KEY}
+  sonarr:
+    url: http://sonarr:8989
+    api_key: ${SONARR_API_KEY}
+list_proxy:
+  api_key: ${LIST_PROXY_API_KEY}
+  tmdb_token: ${TMDB_READ_TOKEN}
+  sources:
+    stevenlu:
+      type: stevenlu
+    trakt_popular:
+      type: trakt
+      mode: popular
+      media_type: movie
+      client_id: ${TRAKT_CLIENT_ID}
+      limit: 100
+    trakt_trending:
+      type: trakt
+      mode: trending
+      media_type: series
+      client_id: ${TRAKT_CLIENT_ID}
+    trakt_saved:
+      type: trakt
+      mode: list
+      user: your-user
+      list_id: your-list-slug
+      client_id: ${TRAKT_CLIENT_ID}
+      token: ${TRAKT_ACCESS_TOKEN}
+    trakt_watchlist:
+      type: trakt
+      mode: watchlist
+      client_id: ${TRAKT_CLIENT_ID}
+      token: ${TRAKT_ACCESS_TOKEN}
+    plex_watchlist:
+      type: plex_watchlist
+      token: ${PLEX_TOKEN}
+    tmdb_popular:
+      type: tmdb
+      mode: popular
+      media_type: series
+      limit: 100
+    tmdb_trending:
+      type: tmdb
+      mode: trending
+      media_type: movie
+      time_window: week
+    tmdb_saved:
+      type: tmdb
+      mode: list
+      list_id: 12345
+      # Private lists require an owner-authorized user token instead of the app token:
+      # token: ${TMDB_USER_TOKEN}
+  lists:
+    movies:
+      target: radarr
+      on_unknown: include  # Use exclude to block titles when filter data is unavailable.
+      sources: [stevenlu, trakt_popular, trakt_saved, trakt_watchlist, plex_watchlist, tmdb_trending, tmdb_saved]
+      when:
+        streaming: my_providers
+    series:
+      target: sonarr
+      on_unknown: include
+      sources: [trakt_trending, trakt_watchlist, plex_watchlist, tmdb_popular, tmdb_saved]
+      when:
+        streaming: my_providers

@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Column
+from rich.text import Text
 
 from excludarr import __version__, output, reporting
 from excludarr.preview import action_description, reclaimable_files
@@ -605,7 +606,8 @@ def config_validate(format: FormatOpt = OutputFormat.table) -> None:
 
     with _command("config validate", format) as doc:
         ctx = _context()
-        for providers in provider_lists(ctx.config.rules):
+        proxy_rules = ctx.config.list_proxy.lists if ctx.config.list_proxy else {}
+        for providers in provider_lists([*ctx.config.rules, *proxy_rules.values()]):
             ctx.provider_ids(providers)
         ctx.provider_ids(ctx.config.profile.providers)
         doc["items"] = [
@@ -616,6 +618,14 @@ def config_validate(format: FormatOpt = OutputFormat.table) -> None:
             }
             for rule in ctx.config.rules
         ]
+        doc["items"].extend(
+            {
+                "rule": name,
+                "condition": describe(rule.when),
+                "action": f"Exclude from {rule.target.title()} import list",
+            }
+            for name, rule in proxy_rules.items()
+        )
         doc["summary"] = {"valid": True, "count": len(doc["items"])}
         if format == OutputFormat.table:
             output.print_rows(
@@ -632,3 +642,189 @@ def config_validate(format: FormatOpt = OutputFormat.table) -> None:
 
 def main() -> None:
     app()
+
+
+lists_app = typer.Typer(help="Filtered source lists.", no_args_is_help=True)
+app.add_typer(lists_app, name="lists")
+
+
+def _list_config():
+    from excludarr.config import ConfigError, database_url, load_config
+    from excludarr.storage.repo import Repo
+
+    config, path = load_config(state["config"])
+    if config.list_proxy is None:
+        raise ConfigError("list_proxy is not configured")
+    return config, Repo(database_url(config, path))
+
+
+def _list_refresh(name: str | None, format: OutputFormat, *, publish: bool):
+    from excludarr.clients.http import IntegrationError
+    from excludarr.config import ConfigError
+    from excludarr.lists.service import refresh_list
+
+    with _command("lists refresh" if publish else "lists preview", format) as doc:
+        config, repo = _list_config()
+        names = [name] if name is not None else list(config.list_proxy.lists)
+        if any(n not in config.list_proxy.lists for n in names):
+            raise ConfigError("unknown outgoing list")
+        failed = False
+        for slug in names:
+            try:
+                result = refresh_list(config, slug, repo, datetime.now(UTC), publish=publish)
+                doc["items"].append(result)
+                failed |= any(
+                    item.get("unknown", False) and item["decision"] == "excluded"
+                    for item in result["items"]
+                )
+            except (IntegrationError, ConfigError) as error:
+                doc["errors"].append(str(error))
+                failed = True
+        doc["summary"] = {"lists": len(names), "failed": len(doc["errors"])}
+        if failed:
+            doc["status"] = "error" if doc["errors"] else "incomplete"
+        if format == OutputFormat.table:
+            rows = [
+                {
+                    "list": result["name"],
+                    "included": Text(str(result["summary"]["included"]), style="green"),
+                    "excluded": Text(str(result["summary"]["excluded"]), style="yellow"),
+                }
+                for result in doc["items"]
+            ]
+            output.print_rows(
+                "Lists",
+                {"list": "List", "included": "Included", "excluded": "Excluded"},
+                rows,
+                Console(),
+            )
+            for result in doc["items"]:
+                details = []
+                for item in result["items"]:
+                    reason = item.get("reason") or output.evidence_text(item["evidence"])
+                    if item.get("unknown") and item["decision"] == "included":
+                        reason = "Required data unavailable; allowed by on_unknown: include"
+                    elif item.get("unknown"):
+                        reason = "Required data unavailable; blocked by on_unknown: exclude"
+                    details.append(
+                        item
+                        | {
+                            "decision": Text(
+                                item["decision"],
+                                style="green" if item["decision"] == "included" else "yellow",
+                            ),
+                            "reason": reason,
+                        }
+                    )
+                output.print_rows(
+                    result["name"],
+                    {"title": "Title", "decision": "Decision", "reason": "Match evidence"},
+                    details,
+                    Console(),
+                )
+            for error in doc["errors"]:
+                typer.echo("error: " + error, err=True)
+        if failed:
+            raise typer.Exit(1)
+
+
+@lists_app.command("refresh")
+def lists_refresh(
+    name: Annotated[str | None, typer.Argument()] = None, format: FormatOpt = OutputFormat.table
+):
+    """Refresh and publish one or all outgoing lists."""
+    _list_refresh(name, format, publish=True)
+
+
+@lists_app.command("preview")
+def lists_preview(name: str, format: FormatOpt = OutputFormat.table):
+    """Evaluate a list without publishing a snapshot."""
+    _list_refresh(name, format, publish=False)
+
+
+@lists_app.command("status")
+def lists_status(format: FormatOpt = OutputFormat.table):
+    """Show local snapshot freshness and last refresh outcome."""
+    from excludarr.lists.service import fingerprint, snapshot_valid
+
+    with _command("lists status", format) as doc:
+        config, repo = _list_config()
+        now = datetime.now(UTC)
+        for name in config.list_proxy.lists:
+            snapshot = repo.list_snapshot(name)
+            doc["items"].append(
+                {
+                    "name": name,
+                    "valid": snapshot_valid(snapshot, fingerprint(config, name), now),
+                    "successful_at": snapshot.successful_at.isoformat()
+                    if snapshot and snapshot.successful_at
+                    else None,
+                    "last_attempt_at": snapshot.last_attempt_at.isoformat() if snapshot else None,
+                    "age_seconds": (now - snapshot.successful_at).total_seconds()
+                    if snapshot and snapshot.successful_at
+                    else None,
+                    "last_error": snapshot.last_error if snapshot else None,
+                    "included": None,
+                    "excluded": None,
+                    **(snapshot.report.get("summary", {}) if snapshot and snapshot.report else {}),
+                }
+            )
+        if format == OutputFormat.table:
+            output.print_rows(
+                "List snapshots",
+                {
+                    "name": "List",
+                    "valid": "Valid",
+                    "successful_at": "Last success (UTC)",
+                    "included": "Included",
+                    "excluded": "Excluded",
+                    "last_error": "Last error",
+                },
+                [
+                    row
+                    | {
+                        key: "—" if row[key] is None else row[key]
+                        for key in ("included", "excluded")
+                    }
+                    for row in doc["items"]
+                ],
+                Console(),
+            )
+
+
+@app.command("serve")
+def serve(
+    host: Annotated[str, typer.Option(help="Bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(min=1, max=65535, help="HTTP port.")] = 8989,
+):
+    """Serve authenticated list snapshots; run refresh separately."""
+    from excludarr.config import ConfigError
+    from excludarr.lists.server import make_server
+
+    with _command("serve", OutputFormat.table):
+        config, repo = _list_config()
+        try:
+            server = make_server(config, repo, host, port)
+        except OSError as error:
+            raise ConfigError("cannot bind list server address") from error
+        typer.echo(f"Serving list snapshots on {host}:{port}", err=True)
+        output.print_rows(
+            "List endpoints",
+            {"name": "List", "target": "Target", "url": "URL"},
+            [
+                {
+                    "name": name,
+                    "target": rule.target.title(),
+                    "url": f"http://{host}:{port}/lists/{name}",
+                }
+                for name, rule in config.list_proxy.lists.items()
+            ],
+            Console(stderr=True),
+        )
+        typer.echo("Append ?apikey=<API_KEY> to each URL using your list_proxy.api_key.", err=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()

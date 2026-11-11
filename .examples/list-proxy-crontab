@@ -1,0 +1,2 @@
+# Refresh each hour; existing library cleanup can run in a separate job if desired.
+0 * * * * . /etc/excludarr/env.sh && excludarr lists refresh -o json > /proc/1/fd/1 2>&1

@@ -70,3 +70,14 @@ class Cache(Base):
     value: Mapped[object] = mapped_column(JSON)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
     fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class ListSnapshot(Base):
+    __tablename__ = "list_snapshot"
+    slug: Mapped[str] = mapped_column(String, primary_key=True)
+    payload: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    report: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    fingerprint: Mapped[str | None] = mapped_column(String)
+    successful_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_attempt_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    last_error: Mapped[str | None] = mapped_column(Text)

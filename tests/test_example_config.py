@@ -36,3 +36,23 @@ def test_cron_sources_container_env():
         ". /etc/excludarr/env.sh && excludarr run -y > /proc/1/fd/1 2>&1" in j for j in jobs
     )
     assert "export -p > /etc/excludarr/env.sh" in (root / "entrypoint.sh").read_text()
+
+
+def test_list_proxy_example(monkeypatch):
+    from pathlib import Path
+
+    from excludarr.config import load_config
+
+    for key in (
+        "RADARR_API_KEY",
+        "SONARR_API_KEY",
+        "LIST_PROXY_API_KEY",
+        "TMDB_READ_TOKEN",
+        "TRAKT_CLIENT_ID",
+        "TRAKT_ACCESS_TOKEN",
+        "PLEX_TOKEN",
+    ):
+        monkeypatch.setenv(key, "example-secret")
+    config, _ = load_config(Path(".examples/list-proxy-example.yml"))
+    assert set(config.list_proxy.lists) == {"movies", "series"}
+    assert len(config.list_proxy.sources) == 9
