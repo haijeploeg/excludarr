@@ -102,3 +102,51 @@ def test_remove_from_collection_and_refresh():
     ref = respx.get(f"{BASE}/library/sections/2/refresh").mock(return_value=httpx.Response(200))
     make().refresh("2")
     assert ref.called
+
+
+@respx.mock
+def test_season_matches_index_and_keeps_section():
+    respx.get(f"{BASE}/library/metadata/20/children").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "MediaContainer": {
+                    "Metadata": [
+                        {"ratingKey": 21, "index": 1},
+                        {"ratingKey": 22, "index": 2},
+                    ]
+                }
+            },
+        )
+    )
+    show = PlexItem("20", "2", "show")
+    assert make().season(show, 2) == PlexItem("22", "2", "season")
+    assert make().season(show, 3) is None
+
+
+@respx.mock
+def test_season_collection_edit_uses_season_type():
+    route = respx.put(f"{BASE}/library/sections/2/all").mock(return_value=httpx.Response(200))
+    make().remove_from_collection(PlexItem("22", "2", "season"), "Leaving Soon")
+    p = route.calls[0].request.url.params
+    assert p["type"] == "3" and p["id"] == "22"
+
+
+@respx.mock
+def test_episode_matches_season_and_index():
+    respx.get(f"{BASE}/library/metadata/20/allLeaves").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "MediaContainer": {
+                    "Metadata": [
+                        {"ratingKey": 31, "parentIndex": 1, "index": 2},
+                        {"ratingKey": 32, "parentIndex": 2, "index": 2},
+                    ]
+                }
+            },
+        )
+    )
+    show = PlexItem("20", "2", "show")
+    assert make().episode(show, 2, 2) == PlexItem("32", "2", "episode")
+    assert make().episode(show, 3, 2) is None

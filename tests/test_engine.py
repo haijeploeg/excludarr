@@ -23,6 +23,12 @@ class FakePlex:
     def remove_from_collection(self, item, name):
         self.calls.append(("remove", item.rating_key, name))
 
+    def season(self, show, number):
+        return PlexItem(f"{show.rating_key}s{number}", show.section_key, "season")
+
+    def episode(self, show, season, number):
+        return PlexItem(f"{show.rating_key}s{season}e{number}", show.section_key, "episode")
+
 
 def movie(mid, monitored=True, year=2000):
     return MediaItem(
@@ -269,14 +275,42 @@ def test_orphaned_queue_rows_dropped(env):
     ctx = env["make"]([kept], seasons=[season(5, 1), season(5, 2), season(5, 3)])
     engine.run(ctx, dry_run=False)
     assert [q.rule for q in repo.queue_all()] == ["kept"]
-    # Another row of series 5 is still queued, so the show stays in the collection.
+    # Each season leaves on its own; season 3 is still queued and stays.
+    assert env["plex"].calls == [
+        ("remove", "show5s1", "Leaving Soon"),
+        ("remove", "show5s2", "Leaving Soon"),
+    ]
+
+    env["plex"].calls.clear()
+    repo.queue_add("gone", "sonarr:season:5:3", "S5-3", 0, due)
+    engine.run(ctx, dry_run=False)
+    # The "kept" row still covers season 3, so it stays in the collection.
+    assert [q.rule for q in repo.queue_all()] == ["kept"]
     assert env["plex"].calls == []
 
-    repo.queue_remove("kept", "sonarr:season:5:3")
-    repo.queue_add("gone", "sonarr:season:5:1", "S5-1", 0, due)
-    engine.run(ctx, dry_run=False)
-    assert repo.queue_all() == []
-    assert env["plex"].calls == [("remove", "show5", "Leaving Soon")]
+
+def test_collection_holds_seasons_not_the_show(env):
+    rules = [rule(target="sonarr", grace_period="7d", leaving_soon_collection=True)]
+    seasons = [season(5, 1), season(5, 2)]
+    engine.run(env["make"](rules, seasons=seasons), dry_run=False)
+    assert env["plex"].calls == [
+        ("add", "show5s1", "Leaving Soon"),
+        ("add", "show5s2", "Leaving Soon"),
+    ]
+
+    env["plex"].calls.clear()
+    seasons[1].monitored = False
+    [report] = engine.run(env["make"](rules, seasons=seasons), dry_run=False)
+    assert report.dropped == ["S5-2"]
+    assert env["plex"].calls == [("remove", "show5s2", "Leaving Soon")]
+
+
+def test_collection_holds_episodes_not_the_show(env):
+    rules = [
+        rule(target="sonarr", level="episode", grace_period="7d", leaving_soon_collection=True)
+    ]
+    engine.run(env["make"](rules, episodes=[episode(5, 1, 2)]), dry_run=False)
+    assert env["plex"].calls == [("add", "show5s1e2", "Leaving Soon")]
 
 
 def test_later_rule_skips_removed_items(env):
