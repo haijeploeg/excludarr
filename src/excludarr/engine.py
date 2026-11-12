@@ -149,10 +149,14 @@ def _collection(ctx: Context, item: MediaItem | None, add: bool) -> str | None:
         return
     name = ctx.config.integrations.plex.leaving_soon_collection
     try:
+        plex = ctx.clients.plex
         plex_item = ctx.plex_item(item)
+        if plex_item is not None and item.kind == "season":
+            plex_item = plex.season(plex_item, item.season)
+        elif plex_item is not None and item.kind == "episode":
+            plex_item = plex.episode(plex_item, item.season, item.episode)
         if plex_item is None:
             raise LookupError("not found in Plex")
-        plex = ctx.clients.plex
         (plex.add_to_collection if add else plex.remove_from_collection)(plex_item, name)
     except Exception as e:  # noqa: BLE001 - the collection never blocks queueing or execution
         message = safe_error(
@@ -164,10 +168,8 @@ def _collection(ctx: Context, item: MediaItem | None, add: bool) -> str | None:
 
 
 def _uncollect(ctx: Context, item: MediaItem | None) -> str | None:
-    """Remove from the collection unless another queue row still covers the same movie/show."""
-    if item is not None and not any(
-        _series_key(q.item_key) == _series_key(item.key) for q in ctx.repo.queue_all()
-    ):
+    """Remove from the collection unless another queue row still covers the same item."""
+    if item is not None and not any(q.item_key == item.key for q in ctx.repo.queue_all()):
         return _collection(ctx, item, add=False)
 
 

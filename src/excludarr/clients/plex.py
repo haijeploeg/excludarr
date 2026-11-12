@@ -6,14 +6,14 @@ from typing import Literal
 from excludarr.clients.http import HttpClient
 from excludarr.config import PlexIntegration
 
-TYPE_IDS = {"movie": 1, "show": 2}
+TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4}
 
 
 @dataclass
 class PlexItem:
     rating_key: str
     section_key: str
-    type: Literal["movie", "show"]
+    type: Literal["movie", "show", "season", "episode"]
 
 
 class PlexClient:
@@ -39,6 +39,19 @@ class PlexClient:
                     out[(item.type, g["id"])] = item
 
         return out
+
+    def season(self, show: PlexItem, number: int) -> PlexItem | None:
+        return self._child(show, "children", "season", index=number)
+
+    def episode(self, show: PlexItem, season: int, number: int) -> PlexItem | None:
+        return self._child(show, "allLeaves", "episode", parentIndex=season, index=number)
+
+    def _child(self, show: PlexItem, path: str, kind, **match) -> PlexItem | None:
+        data = self.http.get(f"/library/metadata/{show.rating_key}/{path}")
+        for m in data["MediaContainer"].get("Metadata", []):
+            if all(m.get(k) == v for k, v in match.items()):
+                return PlexItem(str(m["ratingKey"]), show.section_key, kind)
+        return None
 
     def _edit(self, item: PlexItem, extra: dict) -> None:
         params = {"type": TYPE_IDS[item.type], "id": item.rating_key, "collection.locked": 1}
