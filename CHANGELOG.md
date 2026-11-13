@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.4.0 (2026-11-13)
+
+### Features
+
+- **plex**: Add seasons and episodes to the Leaving Soon collection
+  ([`021a35e`](https://github.com/haijeploeg/excludarr/commit/021a35e6e8c6e34e06b7870f7917a9e4f18469f3))
+
+
 ## v2.3.0 (2026-11-13)
 
 ### Bug Fixes
