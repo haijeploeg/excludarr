@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v2.3.0 (2026-11-13)
+
+### Bug Fixes
+
+- Make CLI tests color-safe and restore dev scenarios
+  ([`fcc6892`](https://github.com/haijeploeg/excludarr/commit/fcc6892cfced93f3c74d0a0ed159a911e555dcdd))
+
+### Features
+
+- Add daemon scheduler and seeded development environment
+  ([`8a7562b`](https://github.com/haijeploeg/excludarr/commit/8a7562ba6a04ce426359bbc06d82bf6a01b80ce4))
+
+
 ## v2.2.0 (2026-11-11)
 
 ### Features
