@@ -43,6 +43,8 @@ rules:
     action: delete_files         # deletes files, unmonitors, keeps the Radarr entry so the
                                  # "Monitor again" rule below can bring it back
     when:
+      # Optional minimum: replace the shorthand with this mapping:
+      # streaming: {providers: [Netflix], monetization: [flatrate], min_quality: hd}
       streaming: my_providers
     unless:                      # any true leaf skips the item
       - tag: keep

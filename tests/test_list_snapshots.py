@@ -55,3 +55,21 @@ def test_first_failure_and_fingerprint(tmp_path):
     changed.list_proxy.lists["movies"].when.params = (2021, None)
     assert fp != fingerprint(changed, "movies")
     assert "secret" not in fp
+
+
+def test_quality_changes_snapshot_fingerprint(tmp_path):
+    from excludarr.conditions import parse_condition
+
+    cfg = config()
+    repo = Repo(f"sqlite:///{tmp_path}/quality.db")
+    now = datetime.now(UTC)
+    hashes = []
+    for minimum in (None, "hd", "4k"):
+        params = {"providers": ["Netflix"]}
+        if minimum:
+            params["min_quality"] = minimum
+        cfg.list_proxy.lists["movies"].when = parse_condition({"streaming": params})
+        hashes.append(fingerprint(cfg, "movies"))
+    assert len(set(hashes)) == 3
+    repo.list_publish("movies", [], {}, hashes[1], now)
+    assert not snapshot_valid(repo.list_snapshot("movies"), hashes[2], now)

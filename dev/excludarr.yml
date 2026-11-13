@@ -32,6 +32,20 @@ rules:
         - streaming: my_providers
     unless: [{tag: dev-protected}]
 
+  # Compare with streaming-movies; this rule requires at least HD.
+  - name: streaming-movies-hd
+    target: radarr
+    preview: true
+    action: delete_files
+    when:
+      all:
+        - has_file: true
+        - streaming:
+            providers: [Netflix]
+            monetization: [flatrate]
+            min_quality: hd
+    unless: [{tag: dev-protected}]
+
   - name: streaming-series
     target: sonarr
     level: series

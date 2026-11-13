@@ -64,10 +64,13 @@ def evidence_text(entries: list[dict] | None, *, compact: bool = False) -> str:
                 ", ".join(
                     f"{offer.get('provider', offer['provider_id'])} · "
                     f"{'subscription' if offer['type'] == 'FLATRATE' else offer['type'].lower()}"
+                    f" · {offer['quality'].upper() if offer.get('quality') else 'quality unknown'}"
                     for offer in values["matched_offers"]
                 )
                 or "no qualifying offers"
             )
+            if values.get("min_quality"):
+                found += f" · min {values['min_quality'].upper()}"
             if values["total_units"] > 1:
                 found += f" ({values['covered_units']}/{values['total_units']} episodes)"
             label = found if entry["result"] else f"{label} ({found})"

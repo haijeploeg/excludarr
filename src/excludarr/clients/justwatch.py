@@ -19,8 +19,8 @@ PACKAGES_QUERY = (
     "packageId clearName technicalName shortName monetizationTypes } }"
 )
 
-# Set of (packageId, MONETIZATION) pairs.
-Avail = frozenset[tuple[int, str]]
+# Offers retain quality so filters cannot combine attributes from different offers.
+Avail = frozenset[tuple[int, str, str | None]]
 
 
 def normalize_locale(locale: str) -> str:
@@ -62,7 +62,11 @@ def _defensive(fn):
 
 
 def _avail(offers: list[dict]) -> Avail:
-    return frozenset((o["package"]["packageId"], o["monetizationType"]) for o in offers)
+    qualities = {"SD": "sd", "HD": "hd", "_4K": "4k"}
+    return frozenset(
+        (o["package"]["packageId"], o["monetizationType"], qualities.get(o.get("presentationType")))
+        for o in offers
+    )
 
 
 class JustWatchClient:

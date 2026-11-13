@@ -65,8 +65,8 @@ def test_decision(when, unless, item, status):
     [
         ({}, "excluded"),
         ({(1, 1): frozenset()}, "included"),
-        ({(1, 1): frozenset({(8, "FLATRATE")})}, "excluded"),
-        ({(1, 1): frozenset({(8, "FLATRATE")}), (1, 2): frozenset()}, "included"),
+        ({(1, 1): frozenset({(8, "FLATRATE", None)})}, "excluded"),
+        ({(1, 1): frozenset({(8, "FLATRATE", None)}), (1, 2): frozenset()}, "included"),
     ],
 )
 def test_show_catalog_coverage(monkeypatch, offers, status):
@@ -95,3 +95,42 @@ def test_unknown_policy(policy, status):
     result = decide(ListItem("Movie", "movie", imdb_id="tt1"), ProxyList(**data), ctx)
     assert result.status == status
     assert result.unknown is True
+
+
+@pytest.mark.parametrize(
+    "quality,policy,expected,unknown",
+    [
+        ("sd", "include", "included", False),
+        ("hd", "include", "excluded", False),
+        (None, "include", "included", True),
+        (None, "exclude", "excluded", True),
+    ],
+)
+def test_list_quality_uses_exclusion_semantics(quality, policy, expected, unknown):
+    proxy = ProxyList(
+        target="radarr",
+        sources=["s"],
+        on_unknown=policy,
+        when={"streaming": {"providers": ["Netflix"], "min_quality": "hd"}},
+    )
+    ctx = SimpleNamespace(
+        streaming=lambda item: [{(8, "FLATRATE", quality)}], provider_ids=lambda providers: {8}
+    )
+    result = decide(ListItem("Movie", "movie"), proxy, ctx)
+    assert (result.status, result.unknown) == (expected, unknown)
+
+
+@pytest.mark.parametrize("policy,expected", [("include", "included"), ("exclude", "excluded")])
+def test_list_unknown_quality_in_unless(policy, expected):
+    proxy = ProxyList(
+        target="radarr",
+        sources=["s"],
+        on_unknown=policy,
+        when={"year": {"min": 2000}},
+        unless=[{"streaming": {"providers": ["Netflix"], "min_quality": "hd"}}],
+    )
+    ctx = SimpleNamespace(
+        streaming=lambda item: [{(8, "FLATRATE", None)}], provider_ids=lambda providers: {8}
+    )
+    result = decide(ListItem("Movie", "movie", year=2020), proxy, ctx)
+    assert (result.status, result.unknown) == (expected, True)

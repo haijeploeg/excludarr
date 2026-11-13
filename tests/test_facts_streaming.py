@@ -13,7 +13,7 @@ from excludarr.items import EpisodeRef, MediaItem
 from excludarr.storage.repo import Repo
 
 GQL = "https://apis.justwatch.com/graphql"
-NFX = frozenset({(8, "FLATRATE")})
+NFX = frozenset({(8, "FLATRATE", None)})
 
 
 @pytest.fixture
@@ -57,7 +57,9 @@ def test_prefetch_reports_every_database_cache_hit(ctx):
     for item in items:
         node = f"node-{item.tmdb_id}"
         ctx.repo.cache_set(f"jw:match:MOVIE:{item.tmdb_id}", node, timedelta(days=1))
-        ctx.repo.cache_set(f"jw:offers:{node}", [[0, 0, [[8, "FLATRATE"]]]], timedelta(days=1))
+        ctx.repo.cache_set(
+            f"jw:offers:v2:{node}", [[0, 0, [[8, "FLATRATE", None]]]], timedelta(days=1)
+        )
     events = []
     ctx.prefetch_streaming(
         items, progress=lambda message, done, total: events.append((done, total))
@@ -98,10 +100,10 @@ def test_provider_labels_show_partial_episode_coverage_and_rental(ctx, kind, con
     ctx.config.profile.providers = configured
     ctx.repo.cache_set("jw:match:SHOW:10", "show", timedelta(days=1))
     ctx.repo.cache_set(
-        "jw:offers:show",
+        "jw:offers:v2:show",
         [
-            [1, 1, [[8, "FLATRATE"], [9, "RENT"]]],
-            [1, 2, [[8, "FLATRATE"]]],
+            [1, 1, [[8, "FLATRATE", None], [9, "RENT", None]]],
+            [1, 2, [[8, "FLATRATE", None]]],
         ],
         timedelta(days=1),
     )
@@ -300,8 +302,8 @@ def test_graphql_error_does_not_trip_breaker(ctx):
 @respx.mock
 def test_refresh_bypasses_existing_offers_and_reuses_fresh_lookup(ctx, failure):
     ctx.repo.cache_set("jw:match:v2:en_US:MOVIE:10", "tm1", timedelta(days=1))
-    key = "jw:offers:tm1"
-    old = [[0, 0, [[8, "FLATRATE"]]]]
+    key = "jw:offers:v2:tm1"
+    old = [[0, 0, [[8, "FLATRATE", None]]]]
     ctx.repo.cache_set(key, old, timedelta(days=1))
     route = mock_gql(search_resp(), None if failure else {"offers": []})
     fresh = Context(ctx.config, ctx.clients, ctx.repo, ctx.now, refresh=True)
@@ -324,3 +326,35 @@ def test_failed_lookup_preserves_already_refreshed_item(ctx, monkeypatch):
     other = replace(movie(), key="radarr:movie:2", tmdb_id=20)
     assert fresh.streaming(other) is None
     assert fresh.streaming(movie()) == [NFX]
+
+
+@respx.mock
+def test_quality_cache_round_trip_and_legacy_refetch(ctx):
+    ctx.repo.cache_set("jw:match:v2:en_US:MOVIE:10", "tm1", timedelta(days=1))
+    ctx.repo.cache_set("jw:offers:tm1", [[0, 0, [[8, "FLATRATE"]]]], timedelta(days=1))
+    node = {
+        "offers": [
+            {"package": {"packageId": 8}, "monetizationType": "FLATRATE", "presentationType": "HD"},
+            {"package": {"packageId": 8}, "monetizationType": "FLATRATE"},
+        ]
+    }
+    route = mock_gql(search_resp(), node)
+    expected = [frozenset({(8, "FLATRATE", "hd"), (8, "FLATRATE", None)})]
+    assert ctx.streaming(movie()) == expected
+    assert route.call_count == 1
+    fresh = Context(ctx.config, ctx.clients, ctx.repo, ctx.now)
+    assert fresh.streaming(movie()) == expected
+    assert route.call_count == 1
+
+
+def test_quality_variants_do_not_inflate_provider_coverage(ctx, monkeypatch):
+    from excludarr.clients.justwatch import Provider
+
+    ctx.config.profile.providers = ["Netflix"]
+    monkeypatch.setattr(
+        ctx,
+        "streaming",
+        lambda item: [frozenset({(8, "FLATRATE", "sd"), (8, "FLATRATE", "hd")}), frozenset()],
+    )
+    monkeypatch.setattr(ctx, "_providers", lambda: [Provider(8, "Netflix", "nfx", ["FLATRATE"])])
+    assert ctx.streaming_labels(movie()) == ["Netflix · 1/2 episodes"]

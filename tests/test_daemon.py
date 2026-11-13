@@ -274,3 +274,36 @@ def test_leaving_soon_failure_is_a_sanitized_job_warning(tmp_path, monkeypatch, 
     assert "Leaving Soon" in execution["error"]
     assert "plex-private" not in execution["error"] + caplog.text
     assert "private-key" not in execution["error"] + caplog.text
+
+
+def test_daemon_quality_matches_and_unknowns(tmp_path, monkeypatch):
+    from excludarr.conditions import parse_condition
+    from excludarr.facts import Context
+    from excludarr.items import MediaItem
+
+    config, repo = setup(tmp_path)
+    config.rules[0].when = parse_condition(
+        {"streaming": {"providers": ["Netflix"], "min_quality": "hd"}}
+    )
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, cfg: cls()))
+    monkeypatch.setattr(
+        "excludarr.engine.build_radarr_items",
+        lambda client: [
+            MediaItem(f"radarr:movie:{i}", "movie", str(i), str(i), i) for i in range(3)
+        ],
+    )
+    monkeypatch.setattr(
+        Context,
+        "streaming",
+        lambda self, item: [{(8, "FLATRATE", ["hd", "sd", None][item.arr_id])}],
+    )
+    monkeypatch.setattr(Context, "provider_ids", lambda *args: {8})
+    monkeypatch.setattr(Context, "provider_names", lambda *args: {8: "Netflix"})
+    result = execute_batch(
+        config, repo, "one", [PendingJob(("rule", "A"), NOW)], Event(), lambda: NOW
+    )
+    assert result.completed == {("rule", "A"): "warning"}
+    job = repo.scheduler_status()["jobs"][0]["last_execution"]
+    assert job["summary"]["matches"] == 1
+    assert job["summary"]["unknown"] == 1
+    assert repo.queue_all() == [] and repo.history() == []
