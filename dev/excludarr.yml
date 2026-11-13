@@ -43,6 +43,122 @@ rules:
         - streaming: {providers: [Netflix], monetization: [flatrate]}
     unless: [{tag: dev-protected}]
 
+  # Action, grace, scheduling and watch/request scenarios (preview-only).
+  - name: tag
+    target: radarr
+    preview: true
+    action: tag
+    when:
+      tag: dev-tag
+    unless:
+    - tag: dev-protected
+    tag: dev-checked
+    schedule: '*/5 * * * *'
+  - name: monitor
+    target: radarr
+    preview: true
+    action: monitor
+    when:
+      all:
+      - tag: dev-monitor
+      - monitored: false
+    unless:
+    - tag: dev-protected
+    search: false
+  - name: unmonitor
+    target: radarr
+    preview: true
+    action: unmonitor
+    when:
+      tag: dev-unmonitor
+    unless:
+    - tag: dev-protected
+  - name: files
+    target: radarr
+    preview: true
+    action: delete_files
+    when:
+      tag: dev-files
+    unless:
+    - tag: dev-protected
+  - name: delete
+    target: radarr
+    preview: true
+    action: delete
+    when:
+      tag: dev-delete
+    unless:
+    - tag: dev-protected
+    delete_files: true
+    import_exclusion: true
+  - name: grace
+    target: radarr
+    preview: true
+    action: delete_files
+    when:
+      tag: dev-grace
+    unless:
+    - tag: dev-protected
+    grace_period: 1h
+    leaving_soon_collection: true
+  - name: episode-files
+    target: sonarr
+    preview: true
+    action: delete_files
+    when:
+      tag: dev-episodes
+    unless:
+    - tag: dev-protected
+    level: episode
+  - name: season-unmonitor
+    target: sonarr
+    preview: true
+    action: unmonitor
+    when:
+      tag: dev-seasons
+    unless:
+    - tag: dev-protected
+    level: season
+  - name: season-monitor
+    target: sonarr
+    preview: true
+    action: monitor
+    when:
+      tag: dev-seasons
+    unless:
+    - tag: dev-protected
+    level: season
+    search: false
+  - name: series-exclusion
+    target: sonarr
+    preview: true
+    action: import_exclusion
+    when:
+      tag: dev-episodes
+    unless:
+    - tag: dev-protected
+    level: series
+  - name: watch-and-requests
+    target: sonarr
+    level: episode
+    preview: true
+    action: tag
+    tag: dev-request-ok
+    when:
+      all:
+      - tag: dev-episodes
+      - watched_by: ${DEV_PLEX_USER}
+      - play_count:
+          min: 1
+      - fully_watched: true
+      - requested_by: ${DEV_PLEX_USER}
+      - requested_less_than: 7d
+      - not:
+          requested_more_than: 7d
+      - requester_watched_more_than: 30d
+    unless:
+    - tag: dev-protected
+
   # Metadata, size/date conditions and all/any/not composition.
   - name: metadata
     target: radarr

@@ -6,6 +6,7 @@ from io import StringIO
 import pytest
 import yaml
 from rich.console import Console
+from rich.text import Text
 from typer.testing import CliRunner
 
 from excludarr import cli
@@ -708,7 +709,7 @@ def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
     )
     result = env["invoke"]("preview")
     assert result.exit_code == 0, result.output
-    compact = sink.getvalue()
+    compact = Text.from_ansi(sink.getvalue()).plain
     assert compact.count("Example movie") == 30
     assert compact.count("multiple") == 3
     assert max(map(len, compact.splitlines())) == width
@@ -720,7 +721,7 @@ def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
     sink.seek(0)
     sink.truncate()
     assert env["invoke"]("preview", "--details").exit_code == 0
-    expanded = sink.getvalue()
+    expanded = Text.from_ansi(sink.getvalue()).plain
     assert expanded.count("Example movie") == 30
     assert "2020-01-01T" in expanded
     structured = env["invoke"]("preview", "-o", "json")
@@ -731,10 +732,17 @@ def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
 
 
 @pytest.mark.parametrize("command", ["run", "preview"])
-def test_details_help_and_legacy_alias(env, command):
+@pytest.mark.parametrize("colored", [False, True])
+def test_details_help_and_legacy_alias(env, monkeypatch, command, colored):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    if colored:
+        monkeypatch.setenv("FORCE_COLOR", "1")
+    else:
+        monkeypatch.delenv("FORCE_COLOR", raising=False)
     help_result = env["invoke"](command, "--help")
-    assert "--details" in help_result.output
-    assert "--show-all" not in help_result.output
+    help_text = Text.from_ansi(help_result.output).plain
+    assert "--details" in help_text
+    assert "--show-all" not in help_text
     args = ["-y"] if command == "run" else []
     assert env["invoke"](command, "--show-all", *args).exit_code == 0
 
