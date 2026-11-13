@@ -269,7 +269,9 @@ def test_movie_table_contains_cached_provider_and_viewer_names(env, monkeypatch,
     monkeypatch.setattr("excludarr.engine.build_radarr_items", lambda client: [MOVIES[0]])
     env["repo"].cache_set("jw:match:MOVIE:1", "movie", timedelta(days=1))
     env["repo"].cache_set(
-        "jw:offers:movie", [[0, 0, [[8, "FLATRATE"], [9, "FLATRATE"]]]], timedelta(days=1)
+        "jw:offers:v2:movie",
+        [[0, 0, [[8, "FLATRATE", None], [9, "FLATRATE", None]]]],
+        timedelta(days=1),
     )
     env["repo"].cache_set(
         "jw:providers:en_US",
@@ -528,15 +530,15 @@ def test_cache_status_reports_fetch_and_expiry_from_local_db(env, monkeypatch):
         pytest.fail("cache status constructed integration clients")
 
     monkeypatch.setattr(Clients, "from_config", fail)
-    env["repo"].cache_set("jw:offers:expired", [], timedelta(hours=-1))
-    env["repo"].cache_set("jw:offers:valid", [], timedelta(hours=1))
+    env["repo"].cache_set("jw:offers:v2:expired", [], timedelta(hours=-1))
+    env["repo"].cache_set("jw:offers:v2:valid", [], timedelta(hours=1))
     report = env["invoke"]("--debug", "cache", "status", "-o", "json")
     assert report.exit_code == 0, report.output
     doc = json.loads(report.stdout)
     offers = next(group for group in doc["items"] if group["type"] == "Offers")
     assert offers["entries"] == 2 and offers["due"] == 1
     assert offers["oldest_fetched_at"] and offers["next_expiry_at"]
-    assert doc["diagnostics"]["entries"][0]["key"] == "jw:offers:expired"
+    assert doc["diagnostics"]["entries"][0]["key"] == "jw:offers:v2:expired"
 
 
 def test_failed_forced_refresh_cannot_match_but_independent_any_can(env, monkeypatch):
@@ -576,7 +578,7 @@ def test_failed_forced_refresh_cannot_match_but_independent_any_can(env, monkeyp
     )
     for item in MOVIES:
         env["repo"].cache_set(f"jw:match:MOVIE:{item.tmdb_id}", "tm1", timedelta(days=1))
-    env["repo"].cache_set("jw:offers:tm1", [[0, 0, [[8, "FLATRATE"]]]], timedelta(days=1))
+    env["repo"].cache_set("jw:offers:v2:tm1", [[0, 0, [[8, "FLATRATE", None]]]], timedelta(days=1))
     jw.search = lambda *args, **kwargs: (_ for _ in ()).throw(
         IntegrationError("justwatch", "offline")
     )
@@ -775,3 +777,37 @@ def test_rule_colors_are_distinct_in_overview_and_details(env, monkeypatch):
         assert len(set(rgb_styles)) == 1
         colors.append(rgb_styles[0])
     assert len(set(colors)) == len(names)
+
+
+@pytest.mark.parametrize("format", ["table", "json", "yaml"])
+def test_quality_evidence_in_table_and_structured_preview(env, monkeypatch, format):
+    from excludarr.facts import Context
+
+    env["write"](
+        [
+            {
+                "name": "quality",
+                "target": "radarr",
+                "action": "delete_files",
+                "when": {"streaming": {"providers": ["Netflix"], "min_quality": "hd"}},
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        Context, "streaming", lambda self, item: [frozenset({(8, "FLATRATE", "4k")})]
+    )
+    monkeypatch.setattr(Context, "provider_ids", lambda *args: {8})
+    monkeypatch.setattr(Context, "provider_names", lambda *args: {8: "Netflix"})
+    result = env["invoke"]("preview", "-o", format)
+    assert result.exit_code == 0, result.output
+    if format == "table":
+        text = Text.from_ansi(result.stdout).plain
+        assert "min HD" in text and "4K" in text
+    else:
+        doc = json.loads(result.stdout) if format == "json" else yaml.safe_load(result.stdout)
+        observed = doc["rules"][0]["matches"][0]["evidence"][0]["observed"]
+        assert observed["min_quality"] == "hd"
+        assert observed["matched_offers"] == [
+            {"provider_id": 8, "type": "FLATRATE", "quality": "4k", "provider": "Netflix"}
+        ]
+    assert env["executed"] == []

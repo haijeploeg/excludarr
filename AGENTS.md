@@ -9,6 +9,7 @@ Excludarr v2 is a Typer CLI rule engine for Radarr (movies) and Sonarr (series).
 ## Current state
 
 - v2 is a breaking rewrite (src layout, hatchling, version 2.0.0) of the v1 poetry/pyarr code. v1 history: the canonical v1 source was `github.com/excludarr/excludarr` (remote `org`); `origin/v2` is an abandoned Django rewrite.
+- Start new work in the normal project checkout on a new branch based on the latest `origin/main`. Do not create worktrees unless the user explicitly requests one.
 - Never commit unprompted (user rule). Never add AI attribution (Co-Authored-By, "Generated with") to commits or PRs.
 - Releases are automatic: `.github/workflows/ci.yml` runs lint + tests, then python-semantic-release (config in `pyproject.toml`) versions from Conventional Commits and publishes to PyPI (trusted publishing) and `ghcr.io/haijeploeg/excludarr`. PRs merge via rebase only, so every commit message must be conventional.
 

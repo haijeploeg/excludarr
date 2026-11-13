@@ -364,7 +364,7 @@ things that should stay gone.
 
 | Condition | Example | Needs |
 |---|---|---|
-| `streaming` | `my_providers` or `{ providers: [Netflix], monetization: [flatrate, free] }` | |
+| `streaming` | `my_providers` or `{ providers: [Netflix], monetization: [flatrate, free], min_quality: hd }` | |
 | `added_more_than` / `added_less_than` | `180d` | |
 | `size_more_than` / `size_less_than` | `20GB` | |
 | `tag` / `genre` | `keep` or `[Anime, Documentary]` | |
@@ -402,6 +402,30 @@ configuration through environment variables are gone.
   environment variables, and call `excludarr run -y` from the crontab.
 
 </details>
+
+## Minimum streaming quality
+
+Set `min_quality` inside a streaming condition to require `sd`, `hd` or `4k`:
+
+```yaml
+when:
+  streaming:
+    providers: [Netflix]
+    monetization: [flatrate]
+    min_quality: hd
+```
+
+These are minimums: `hd` accepts HD and 4K. Without `min_quality`, availability
+matching stays unchanged. The provider, monetization and quality must belong to
+the same offer; a 4K purchase cannot qualify an SD subscription. For a season,
+every selected episode must meet the minimum. Rules run manually or by the daemon
+use the same condition. Preview shows the minimum and qualifying offer quality.
+
+Missing or unfamiliar quality makes an otherwise eligible offer unknown. Unknown
+streaming cannot establish a destructive match, including under `not`. JustWatch
+reports catalog quality, not the quality available to your account or device.
+There are no separate 720p/1080p, HDR or audio thresholds. On upgrade, offers are
+refetched once as needed; existing title matches and cache expiry settings stay.
 
 ## ⚠️ Not yet verified
 

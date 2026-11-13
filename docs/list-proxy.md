@@ -261,3 +261,27 @@ The standard-library HTTP server is intended for a trusted private network. Keep
 the feed key/URLs secret. When using a reverse proxy, terminate HTTPS there and
 omit query strings from its access logs. Excludarr suppresses its own HTTP access
 logs containing feed credentials.
+
+## Minimum streaming quality
+
+Lists accept the same condition as library rules:
+
+```yaml
+when:
+  streaming:
+    providers: [Netflix]
+    monetization: [flatrate]
+    min_quality: hd
+```
+
+Use `sd`, `hd` or `4k`; HD accepts HD and 4K. Omit the setting to keep unrestricted
+matching. Remember that a list's `when` is an **exclusion** condition: this example
+excludes titles with a qualifying HD/4K subscription offer and passes SD-only titles.
+Changing the minimum invalidates the previous snapshot; run `lists refresh` to
+publish it again, or let its scheduled refresh run.
+
+Missing or unfamiliar quality is unknown when a minimum is configured. The default
+`on_unknown: include` passes such titles; `exclude` keeps them out. This policy also
+applies when the quality condition is in `unless`. Quality and provider/type must
+match the same offer. For a series feed, existing episode-coverage rules still apply.
+JustWatch describes catalog quality, not your account tier or device capability.

@@ -1,4 +1,5 @@
 import httpx
+import pytest
 import respx
 
 from excludarr.clients.justwatch import JustWatchClient, normalize_locale
@@ -60,6 +61,37 @@ def test_show_offers_keys_by_season_episode():
     }
     respx.post(GQL).mock(return_value=httpx.Response(200, json={"data": {"node": node}}))
     assert JustWatchClient("en_US").show_offers("tse1") == {
-        (1, 2): frozenset({(8, "FLATRATE")}),
+        (1, 2): frozenset({(8, "FLATRATE", None)}),
         (1, 3): frozenset(),
     }
+
+
+@pytest.mark.parametrize("kind", ["movie", "episode"])
+@respx.mock
+def test_offers_preserve_quality_variants_and_unknowns(kind):
+    variants = [dict(offer(8), presentationType=q) for q in ("SD", "HD", "_4K", None, "FUTURE")]
+    variants.append(offer(8))
+    node = (
+        {"offers": variants}
+        if kind == "movie"
+        else {
+            "seasons": [
+                {
+                    "episodes": [
+                        {"content": {"seasonNumber": 1, "episodeNumber": 1}, "offers": variants}
+                    ]
+                }
+            ]
+        }
+    )
+    respx.post(GQL).mock(return_value=httpx.Response(200, json={"data": {"node": node}}))
+    client = JustWatchClient("nl_NL")
+    actual = client.movie_offers("m1") if kind == "movie" else client.show_offers("s1")[(1, 1)]
+    assert actual == frozenset(
+        {
+            (8, "FLATRATE", "sd"),
+            (8, "FLATRATE", "hd"),
+            (8, "FLATRATE", "4k"),
+            (8, "FLATRATE", None),
+        }
+    )

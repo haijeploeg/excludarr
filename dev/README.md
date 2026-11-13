@@ -247,3 +247,18 @@ successful downloads need indexers/download clients and are outside this stack.
 
 Pinned images: Radarr 6.4.4.10685, Sonarr 4.0.20.3014, Plex 1.43.5.11079-b3b13e506,
 Tautulli 2.19.1, Seerr 3.5.1. Revalidate the suite when upgrading image digests.
+
+### Minimum streaming quality
+
+Compare the unrestricted rule with the HD rule:
+
+```sh
+make dev ARGS="preview --rule streaming-movies --details"
+make dev ARGS="preview --rule streaming-movies-hd --details"
+```
+
+The second rule requires an HD or 4K Netflix subscription offer. Both rules are
+preview-only. Inspect the minimum and observed quality in match evidence; catalog
+counts can change. Missing quality is unknown. You can change `min_quality` to
+`sd` or `4k` without rebuilding. Source-code changes do require rebuilding the dev
+image and opening a new shell. Reseeding is not required for this preview.

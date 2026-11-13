@@ -198,7 +198,7 @@ class Context:
 
     def _offers(self, node_id: str, kind: Literal["MOVIE", "SHOW"]) -> dict[tuple[int, int], Avail]:
         """Offers per (season, episode); a movie is stored under (0, 0)."""
-        key = f"jw:offers:{node_id}"
+        key = f"jw:offers:v2:{node_id}"
 
         def fetch():
             jw = self.clients.justwatch
@@ -206,10 +206,13 @@ class Context:
                 offers = {(0, 0): jw.movie_offers(node_id)}
             else:
                 offers = jw.show_offers(node_id)
-            return [[s, e, sorted(a)] for (s, e), a in offers.items()]
+            return [
+                [s, e, sorted(a, key=lambda offer: (offer[0], offer[1], offer[2] or ""))]
+                for (s, e), a in offers.items()
+            ]
 
         cached = self._cached(key, fetch, DAY)
-        return {(s, e): frozenset((p, m) for p, m in a) for s, e, a in cached}
+        return {(s, e): frozenset((p, m, q) for p, m, q in a) for s, e, a in cached}
 
     def streaming(self, item: MediaItem) -> list[Avail] | None:
         """One Avail per atomic unit; [] means "no aired units", None means unknown."""
@@ -228,7 +231,10 @@ class Context:
                         "JustWatch offers for %r: %d units, provider IDs and offer types %s",
                         item.title,
                         len(result),
-                        sorted({offer for unit in result for offer in unit}),
+                        sorted(
+                            {offer for unit in result for offer in unit},
+                            key=lambda offer: (offer[0], offer[1], offer[2] or ""),
+                        ),
                     )
         return self._memo[memo_key]
 
@@ -298,7 +304,7 @@ class Context:
         names = {p.id: p.clear_name for p in providers if p.clear_name.casefold() in configured}
         counts: dict[tuple[int, str], int] = {}
         for offers in units:
-            for offer in offers:
+            for offer in {(pid, kind) for pid, kind, quality in offers}:
                 if offer[0] in names:
                     counts[offer] = counts.get(offer, 0) + 1
         labels = []

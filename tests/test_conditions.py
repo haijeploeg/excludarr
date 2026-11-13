@@ -145,7 +145,7 @@ def test_user_rule_grouped():
 
 
 def test_streaming_season_requires_every_aired_episode():
-    units = [frozenset({(8, "FLATRATE")}), frozenset({(9, "FLATRATE")})]
+    units = [frozenset({(8, "FLATRATE", None)}), frozenset({(9, "FLATRATE", None)})]
     ctx = FakeContext(streaming=units)
     netflix = parse_condition({"streaming": {"providers": ["Netflix"]}})
     both = parse_condition({"streaming": {"providers": ["Netflix", "Prime"]}})
@@ -160,7 +160,7 @@ def test_streaming_no_units_is_false_and_unknown_is_none():
 
 
 def test_streaming_monetization_filter():
-    ctx = FakeContext(streaming=[frozenset({(8, "FREE")})])
+    ctx = FakeContext(streaming=[frozenset({(8, "FREE", None)})])
     assert evaluate(parse_condition({"streaming": "my_providers"}), movie(), ctx) is False
     cond = parse_condition({"streaming": {"monetization": ["free"]}})
     assert evaluate(cond, movie(), ctx) is True
@@ -355,10 +355,12 @@ def test_rule_requires_when(minimal_cfg):
 def test_evidence_uses_only_the_decisive_any_branch():
     condition = parse_condition({"any": [{"year": {"min": 2020}}, {"streaming": "my_providers"}]})
     evidence = []
-    ctx = FakeContext(streaming=[frozenset({(8, "FLATRATE"), (9, "BUY")})])
+    ctx = FakeContext(streaming=[frozenset({(8, "FLATRATE", None), (9, "BUY", None)})])
     assert evaluate(condition, movie(), ctx, evidence=evidence) is True
     assert [entry.condition for entry in evidence] == ["streaming"]
-    assert evidence[0].observed["matched_offers"] == [{"provider_id": 8, "type": "FLATRATE"}]
+    assert evidence[0].observed["matched_offers"] == [
+        {"provider_id": 8, "type": "FLATRATE", "quality": None}
+    ]
 
 
 def test_evidence_for_not_and_requester_play():
@@ -383,3 +385,57 @@ def test_evidence_for_not_and_requester_play():
     )
     assert evidence[0].observed["last_played_at"] == ago(43).isoformat()
     assert evidence[0].observed["threshold_seconds"] == 30 * 86400
+
+
+@pytest.mark.parametrize("minimum", ["sd", "hd", "4k"])
+@pytest.mark.parametrize("quality", ["sd", "hd", "4k"])
+def test_streaming_minimum_ordering(minimum, quality):
+    cond = parse_condition({"streaming": {"min_quality": minimum}})
+    expected = ["sd", "hd", "4k"].index(quality) >= ["sd", "hd", "4k"].index(minimum)
+    assert evaluate(cond, movie(), FakeContext(streaming=[{(8, "FLATRATE", quality)}])) is expected
+
+
+@pytest.mark.parametrize("invalid", ["SD", "_4K", "1080p", "", None, True, 1])
+def test_streaming_min_quality_validation(invalid):
+    with pytest.raises(ValueError, match="min_quality"):
+        parse_condition({"streaming": {"min_quality": invalid}})
+
+
+@pytest.mark.parametrize(
+    "offers,expected",
+    [
+        ({(8, "FLATRATE", "sd"), (8, "BUY", "4k")}, False),
+        ({(8, "FLATRATE", "sd"), (9, "FLATRATE", "4k")}, False),
+        ({(8, "FLATRATE", None), (9, "FLATRATE", "4k")}, None),
+        ({(8, "FLATRATE", "sd"), (8, "FLATRATE", None)}, None),
+        ({(8, "FLATRATE", "hd"), (8, "FLATRATE", None)}, True),
+        ({(8, "FLATRATE", "sd"), (9, "FLATRATE", None)}, False),
+        (set(), False),
+    ],
+)
+def test_quality_cannot_be_combined_across_offers(offers, expected):
+    cond = parse_condition({"streaming": {"min_quality": "hd"}})
+    ctx = FakeContext(streaming=[offers])
+    assert evaluate(cond, movie(), ctx) is expected
+    assert evaluate(Not(cond), movie(), ctx) is (None if expected is None else not expected)
+
+
+@pytest.mark.parametrize(
+    "qualities,expected",
+    [
+        (["hd", None], None),
+        (["hd", "sd"], False),
+        (["sd", None], False),
+        (["hd", "4k"], True),
+        ([], False),
+    ],
+)
+def test_season_quality_requires_every_selected_episode(qualities, expected):
+    cond = parse_condition({"streaming": {"providers": ["netflix", "prime"], "min_quality": "hd"}})
+    units = [{(8 if i % 2 else 9, "FLATRATE", q)} for i, q in enumerate(qualities)]
+    assert evaluate(cond, season(), FakeContext(streaming=units)) is expected
+
+
+def test_unrestricted_streaming_accepts_unknown_quality():
+    cond = parse_condition({"streaming": "my_providers"})
+    assert evaluate(cond, movie(), FakeContext(streaming=[{(8, "FLATRATE", None)}])) is True

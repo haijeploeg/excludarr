@@ -26,6 +26,7 @@ _SIZE = re.compile(r"(\d+(?:\.\d+)?)(MB|GB|TB)")
 _UNITS = {"h": "hours", "d": "days", "w": "weeks"}
 _SIZES = {"MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
 MONETIZATIONS = ("flatrate", "free", "ads", "rent", "buy")
+QUALITY_RANK = {"sd": 0, "hd": 1, "4k": 2}
 
 
 def parse_duration(s: str) -> timedelta:
@@ -154,12 +155,18 @@ def _keep_latest(v: Any) -> tuple[str, int]:
     return unit, n
 
 
-def _streaming(v: Any) -> tuple[list[str] | str, frozenset[str]]:
+def _streaming(v: Any) -> tuple[list[str] | str, frozenset[str], str | None]:
     if v == "my_providers":
         v = {}
-    d = v if isinstance(v, dict) and set(v) <= {"providers", "monetization"} else None
+    d = (
+        v
+        if isinstance(v, dict) and set(v) <= {"providers", "monetization", "min_quality"}
+        else None
+    )
     if d is None:
-        raise ValueError(f"expected 'my_providers' or {{providers, monetization}}, got {v!r}")
+        raise ValueError(
+            f"expected 'my_providers' or {{providers, monetization, min_quality}}, got {v!r}"
+        )
     providers = d.get("providers", "my_providers")
     if providers != "my_providers" and not (
         isinstance(providers, list) and providers and all(isinstance(p, str) for p in providers)
@@ -168,7 +175,10 @@ def _streaming(v: Any) -> tuple[list[str] | str, frozenset[str]]:
     mons = _strs(d.get("monetization", ["flatrate"]))
     if not mons <= set(MONETIZATIONS):
         raise ValueError(f"monetization must be from {list(MONETIZATIONS)}, got {sorted(mons)}")
-    return providers, frozenset(m.upper() for m in mons)
+    minimum = d.get("min_quality")
+    if "min_quality" in d and (not isinstance(minimum, str) or minimum not in QUALITY_RANK):
+        raise ValueError("min_quality must be sd, hd or 4k")
+    return providers, frozenset(m.upper() for m in mons), minimum
 
 
 # --- evaluators ------------------------------------------------------------
@@ -216,22 +226,41 @@ def _streaming_eval(p, item: MediaItem, ctx: Context) -> Observation | None:
     units = ctx.streaming(item)
     if units is None:
         return None
-    providers, mons = p
+    providers, mons, minimum = p
     ids = ctx.provider_ids(providers) if units else set()
     if ids is None:
         return None
-    qualified = [
-        {(pid, kind) for pid, kind in unit if pid in ids and kind in mons} for unit in units
-    ]
-    offers = sorted({offer for unit in qualified for offer in unit})
+    qualified, states = [], []
+    for unit in units:
+        eligible = {(pid, kind, q) for pid, kind, q in unit if pid in ids and kind in mons}
+        matches = {
+            (pid, kind, q)
+            for pid, kind, q in eligible
+            if minimum is None or (q is not None and QUALITY_RANK[q] >= QUALITY_RANK[minimum])
+        }
+        qualified.append(matches)
+        states.append(
+            True
+            if matches
+            else None
+            if minimum and any(q is None for _, _, q in eligible)
+            else False
+        )
+    if False not in states and None in states:
+        return None
+    offers = sorted(
+        {offer for unit in qualified for offer in unit},
+        key=lambda offer: (offer[0], offer[1], offer[2] or ""),
+    )
     names = ctx.provider_names() if offers and hasattr(ctx, "provider_names") else {}
     return Observation(
-        bool(units) and all(qualified),
+        bool(units) and all(state is True for state in states),
         {
+            "min_quality": minimum,
             "matched_offers": [
-                {"provider_id": pid, "type": kind}
+                {"provider_id": pid, "type": kind, "quality": quality}
                 | ({"provider": names[pid]} if pid in names else {})
-                for pid, kind in offers
+                for pid, kind, quality in offers
             ],
             "covered_units": sum(bool(unit) for unit in qualified),
             "total_units": len(units),
@@ -342,7 +371,8 @@ def _streaming_label(v: Any) -> str:
     where = "my providers" if providers == "my_providers" else ", ".join(providers)
     mons = d.get("monetization", ["flatrate"])
     mons = [mons] if isinstance(mons, str) else mons
-    return f"on {where} ({', '.join(m.lower() for m in mons)})"
+    quality = f", min {d['min_quality'].upper()}" if "min_quality" in d else ""
+    return f"on {where} ({', '.join(m.lower() for m in mons)}{quality})"
 
 
 def _list_label(v: Any) -> str:
