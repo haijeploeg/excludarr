@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "excludarr"
-version = "2.4.0"
+version = "2.5.0"
 description = "Rule engine for Radarr/Sonarr libraries"
 readme = "README.md"
 requires-python = ">=3.12"

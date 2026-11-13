@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.5.0 (2026-11-13)
+
+### Features
+
+- Add minimum streaming quality filters
+  ([`2e3064c`](https://github.com/haijeploeg/excludarr/commit/2e3064cd5a0fefdd7ee8f9b7f8c7a2b0d6746481))
+
+
 ## v2.4.0 (2026-11-13)
 
 ### Features
