@@ -99,6 +99,9 @@ class HttpClient:
                 continue
             raise IntegrationError(self.name, f"HTTP {resp.status_code}", resp.status_code)
 
+    def close(self) -> None:
+        self._client.close()
+
     def get(self, path: str, params: dict | None = None) -> Any:
         return self._request("GET", path, params=params)
 

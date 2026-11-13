@@ -443,3 +443,53 @@ def test_preflight_builds_all_item_sets_before_acting(env, monkeypatch):
     with pytest.raises(RuntimeError):
         engine.run(ctx, dry_run=False)
     assert env["executed"] == []
+
+
+def test_due_subset_keeps_order_shared_removals_and_other_queue(env):
+    ctx = env["make"]([rule("A"), rule("B"), rule("manual")], movies=[movie(1)])
+    ctx.repo.queue_add("manual", "radarr:movie:1", "M1", 100, NOW)
+    completed = []
+    reports = engine.run(
+        ctx,
+        dry_run=False,
+        rule_names=frozenset({"B", "A"}),
+        on_rule_complete=lambda r: completed.append(r.rule.name),
+    )
+    assert [r.rule.name for r in reports] == ["A", "B"]
+    assert completed == ["A", "B"]
+    assert env["executed"] == [("A", "radarr:movie:1")]
+    assert len(ctx.repo.queue_for("manual")) == 1
+
+
+def test_stop_between_rules_and_before_first(env):
+    ctx = env["make"]([rule("A", preview=True), rule("B")], movies=[movie(1)])
+    completed = []
+    reports = engine.run(
+        ctx,
+        dry_run=False,
+        should_stop=lambda: bool(completed),
+        on_rule_complete=lambda r: completed.append(r.rule.name),
+    )
+    assert [r.rule.name for r in reports] == ["A"]
+    assert env["executed"] == []
+    assert engine.run(ctx, dry_run=False, should_stop=lambda: True) == []
+
+
+def test_rule_lifecycle_retains_completed_before_exception(env):
+    ctx = env["make"]([rule("A", preview=True), rule("B"), rule("C")], movies=[movie(1)])
+    starts, completed = [], []
+
+    def start(rule):
+        starts.append(rule.name)
+        if rule.name == "B":
+            raise RuntimeError("failure in B")
+
+    with pytest.raises(RuntimeError, match="failure in B"):
+        engine.run(
+            ctx,
+            dry_run=False,
+            on_rule_start=start,
+            on_rule_complete=lambda r: completed.append(r.rule.name),
+        )
+    assert starts == ["A", "B"]
+    assert completed == ["A"]

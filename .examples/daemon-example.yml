@@ -1,0 +1,49 @@
+# One persistent process. See docs/daemon.md for credentials and migration.
+scheduler:
+  timezone: Europe/Amsterdam
+profile:
+  locale: nl_NL
+  providers: [Netflix]
+integrations:
+  radarr:
+    url: http://radarr:7878
+    api_key: ${RADARR_API_KEY}
+  sonarr:
+    url: http://sonarr:8989
+    api_key: ${SONARR_API_KEY}
+rules:
+  - name: Streaming movies
+    target: radarr
+    schedule: "0 2 * * *"
+    preview: true  # Review matches before changing this to false.
+    action: delete_files
+    grace_period: 14d
+    when:
+      streaming: my_providers
+list_proxy:
+  api_key: ${LIST_PROXY_API_KEY}
+  tmdb_token: ${TMDB_READ_TOKEN}
+  sources:
+    trending_movies:
+      type: tmdb
+      mode: trending
+      media_type: movie
+    popular_series:
+      type: tmdb
+      mode: popular
+      media_type: series
+  lists:
+    movies:
+      target: radarr
+      sources: [trending_movies]
+      schedule: "0 * * * *"
+      on_unknown: include
+      when:
+        streaming: my_providers
+    series:
+      target: sonarr
+      sources: [popular_series]
+      schedule: "0 */2 * * *"
+      on_unknown: include
+      when:
+        streaming: my_providers

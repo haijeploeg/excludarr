@@ -1,51 +1,103 @@
----
-#
-# This Docker compose file is for development purpose only
-#
-
+# Disposable development environment; never mount a personal library here.
+name: excludarr-dev
+x-tools: &tools
+  image: excludarr-dev-tools
+  env_file:
+    - path: ./dev/.env.local
+      required: false
+  volumes:
+    - ./dev:/config/user:ro
+    - dev_config:/config
+    - dev_media:/media
+    - radarr_config:/services/radarr
+    - sonarr_config:/services/sonarr
+    - plex_config:/services/plex
+    - tautulli_config:/services/tautulli
+    - seerr_config:/services/seerr
 services:
+  init:
+    <<: *tools
+    build:
+      context: .
+      dockerfile: dev/Dockerfile
+    command: init
   radarr:
-    image: linuxserver/radarr
-    container_name: radarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Amsterdam
-    volumes:
-      - radarr_config:/config
-      - radarr_movies:/movies:rw
-    ports:
-      - 7878:7878
-    restart: unless-stopped
-    healthcheck:
-      test: curl -sf localhost:7878/ping
-      interval: 1m30s
-      timeout: 10s
-      retries: 2
-      start_period: 30s
-
+    image: lscr.io/linuxserver/radarr@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2
+    depends_on:
+      init: {condition: service_completed_successfully}
+    environment: {PUID: '1000', PGID: '1000', TZ: Europe/Amsterdam}
+    volumes: [radarr_config:/config, dev_media:/media]
+    ports: ['127.0.0.1:17878:7878']
   sonarr:
-    image: linuxserver/sonarr
-    container_name: sonarr
+    image: lscr.io/linuxserver/sonarr@sha256:673dc4609a5672bc8e46069c86ffcea283a86b48d34a6c93d8da8c24a1b87571
+    depends_on:
+      init: {condition: service_completed_successfully}
+    environment: {PUID: '1000', PGID: '1000', TZ: Europe/Amsterdam}
+    volumes: [sonarr_config:/config, dev_media:/media]
+    ports: ['127.0.0.1:18989:8989']
+  plex:
+    image: lscr.io/linuxserver/plex@sha256:d6e045dac4ea2ccb94e0aa4441e02dbec9c9d306d650814eb33d20ad497a2107
+    depends_on:
+      init: {condition: service_completed_successfully}
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Amsterdam
+      PUID: '1000'
+      PGID: '1000'
+      VERSION: docker
+      PLEX_CLAIM: ${PLEX_CLAIM:-}
+      ADVERTISE_IP: http://127.0.0.1:32410/
+      TZ: Europe/Amsterdam
+    volumes: [plex_config:/config, 'dev_media:/media:ro']
+    ports: ['127.0.0.1:32410:32400']
+  tautulli:
+    image: ghcr.io/tautulli/tautulli@sha256:e2f9410116ffd6667c32875ba2f3038aa0a6acb6c4f64403f535ae435eeaab2a
+    depends_on:
+      init: {condition: service_completed_successfully}
+    environment: {TZ: Europe/Amsterdam}
     volumes:
-      - sonarr_config:/config
-      - sonarr_series:/tv:rw
-    ports:
-      - 8989:8989
-    restart: unless-stopped
-    healthcheck:
-      test: curl -sf localhost:8989/ping
-      interval: 1m30s
-      timeout: 10s
-      retries: 2
-      start_period: 30s
+      # The image's /config/DOCKER marker means "not mounted" to Tautulli.
+      - type: volume
+        source: tautulli_config
+        target: /config
+        volume:
+          nocopy: true
+      - dev_config:/seed
+    ports: ['127.0.0.1:18181:8181']
+  seerr:
+    image: ghcr.io/seerr-team/seerr@sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be
+    init: true
+    depends_on:
+      init: {condition: service_completed_successfully}
+    environment: {TZ: Europe/Amsterdam}
+    volumes:
+      # Prevent the image's "unmounted config" marker from entering the named volume.
+      - type: volume
+        source: seerr_config
+        target: /app/config
+        volume:
+          nocopy: true
+    ports: ['127.0.0.1:15055:5055']
+  fixtures:
+    image: excludarr-dev-tools
+    depends_on:
+      init: {condition: service_completed_successfully}
+    entrypoint: ['python', '-m', 'dev.feed']
+    volumes: [dev_config:/config]
+  tools:
+    <<: *tools
+    profiles: [tools]
+  excludarr:
+    <<: *tools
+    profiles: [daemon]
+    entrypoint: ['python', '-m', 'dev.cli']
+    command: ['daemon', '--host', '0.0.0.0', '--port', '8989']
+    ports: ['127.0.0.1:18990:8989']
+    stop_grace_period: 5m
 
 volumes:
+  dev_config:
+  dev_media:
   radarr_config:
-  radarr_movies:
   sonarr_config:
-  sonarr_series:
+  plex_config:
+  tautulli_config:
+  seerr_config:

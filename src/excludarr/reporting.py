@@ -68,7 +68,8 @@ def run_document(
         "estimated_after_grace_bytes": later,
         "size_freed_bytes": sum(result.size_freed for result in attempted),
         "failed": sum(not result.ok for result in attempted),
-        "cleanup_warnings": sum(bool(result.side_effect_errors) for result in attempted),
+        "cleanup_warnings": sum(bool(result.side_effect_errors) for result in attempted)
+        + sum(len(report.warnings) for report in reports),
     }
     for report in reports:
         results = {m.item.key: result for m, result in report.executed}
@@ -112,6 +113,7 @@ def run_document(
             "grace_seconds": int(report.rule.grace_period.total_seconds()),
             "action": action_description(report.rule),
             "related_changes": report.side_effects,
+            "warnings": list(report.warnings),
             "queue_effect": report.queue_effect,
             "match_count": len(report.matches),
             "matched_size_bytes": sum(m.item.size_bytes for m in report.matches),
@@ -213,3 +215,61 @@ def cache_status(entries, now, *, diagnostics: bool) -> dict:
             ]
         }
     return result
+
+
+def schedule_document(config, status: dict, now) -> dict:
+    from datetime import timedelta
+
+    from excludarr.jobs import configured_jobs
+
+    daemon = status["daemon"]
+    active = bool(
+        daemon
+        and daemon["stopped_at"] is None
+        and timedelta(0) <= now - daemon["heartbeat_at"] <= timedelta(seconds=15)
+    )
+    state = (
+        "active" if active else "stale" if daemon and daemon["stopped_at"] is None else "offline"
+    )
+    stored = {(row["kind"], row["name"]): row for row in status["jobs"]}
+    doc = document("schedule status")
+    doc["summary"] = {
+        "daemon": state,
+        "timezone": config.scheduler.timezone,
+        "heartbeat_at": daemon["heartbeat_at"].isoformat() if daemon else None,
+    }
+    for job in configured_jobs(config):
+        row = stored.get(job.key, {})
+        compatible = bool(
+            daemon
+            and daemon["timezone"] == config.scheduler.timezone
+            and row.get("schedule") == job.schedule
+        )
+        last = row.get("last_execution")
+        if last:
+            last = {
+                key: value.isoformat() if hasattr(value, "isoformat") else value
+                for key, value in last.items()
+            }
+        doc["items"].append(
+            {
+                "kind": job.key[0],
+                "name": job.key[1],
+                "schedule": job.schedule,
+                "timezone": config.scheduler.timezone,
+                "configuration_matches": compatible,
+                "state": row.get("state", "idle")
+                if active and compatible
+                else state
+                if not active
+                else "restart_required",
+                "next_due": row["next_due"].isoformat()
+                if active and compatible and row.get("next_due")
+                else None,
+                "pending_due": row["pending_due"].isoformat()
+                if active and compatible and row.get("pending_due")
+                else None,
+                "last_execution": last,
+            }
+        )
+    return doc

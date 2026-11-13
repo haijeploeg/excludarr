@@ -30,6 +30,7 @@ docker build -t excludarr:dev . && docker run --rm excludarr:dev --version
 - `items.py`: `MediaItem` (movie, series, season, episode with inherited series attributes). `facts.py`: lazy lookups (streaming, watch, requests) that return `None` when unknown.
 - `engine.py`: evaluates rules in file order, preview, grace queue, exceptions, Leaving Soon collection. `actions.py`: executes an action plus side effects (queue cleanup, Seerr clear, Plex refresh); a failed side effect does not roll back the action.
 - `clients/`: one httpx client per integration on `http.py` (retry, timeouts); `justwatch.py` (GraphQL, queries in `justwatch_queries.py`), `radarr.py`, `sonarr.py`, `tautulli.py`, `seerr.py`, `plex.py`.
+- `scheduling.py` / `jobs.py`: five-field cron and timezone/DST policies, deterministic due-job ordering/coalescing. `daemon.py`: one serial worker plus HTTP/heartbeat lifecycle. `execution.py` / `locking.py`: shared native SQLite-file mutation/singleton locks.
 - `storage/`: SQLAlchemy models and `repo.py` (queue, exceptions, history, cache); alembic migrations in `storage/migrations` ship in the wheel.
 - Docker: `entrypoint.sh` runs `excludarr "$@"`, or `crond -f` with `/config/crontab` when `CRON_MODE=true`. Config is `/config/excludarr.yml`; no env-to-YAML generation.
 - Open item: the Plex Leaving Soon collection request shape is unverified against a real server.

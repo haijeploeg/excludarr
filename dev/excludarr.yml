@@ -1,0 +1,191 @@
+# Manual development configuration: edit this file, then rerun make dev.
+# All rules start in preview. To apply ONE rule, set its preview to false and use
+# make dev ARGS="run --rule NAME --yes". make dev-seed preserves this file.
+# Credentials and the Plex test username are injected from the private dev volumes.
+profile:
+  locale: nl_NL
+  providers: [Netflix]
+
+database: sqlite:////config/manual.db
+scheduler:
+  timezone: Europe/Amsterdam
+
+integrations:
+  radarr: {url: 'http://radarr:7878', api_key: '${RADARR_API_KEY}'}
+  sonarr: {url: 'http://sonarr:8989', api_key: '${SONARR_API_KEY}'}
+  tautulli: {url: 'http://tautulli:8181', api_key: '${TAUTULLI_API_KEY}'}
+  seerr: {url: 'http://seerr:5055', api_key: '${SEERR_API_KEY}'}
+  plex:
+    url: http://plex:32400
+    token: ${PLEX_TOKEN}
+    leaving_soon_collection: Excludarr Dev Leaving Soon
+
+rules:
+  # Live JustWatch data; matches can change as catalogs change.
+  - name: streaming-movies
+    target: radarr
+    preview: true
+    action: delete_files
+    when:
+      all:
+        - has_file: true
+        - streaming: my_providers
+    unless: [{tag: dev-protected}]
+
+  - name: streaming-series
+    target: sonarr
+    level: series
+    preview: true
+    action: delete_files
+    when:
+      all:
+        - has_file: true
+        - streaming: {providers: [Netflix], monetization: [flatrate]}
+    unless: [{tag: dev-protected}]
+
+  # Metadata, size/date conditions and all/any/not composition.
+  - name: metadata
+    target: radarr
+    preview: true
+    action: tag
+    tag: dev-metadata-ok
+    when:
+      all:
+        - tag: dev-tag
+        - has_file: true
+        - added_less_than: 7d
+        - not: {added_more_than: 7d}
+        - size_more_than: 0MB
+        - size_less_than: 1MB
+        - year: {min: 1990, max: 2000}
+        - genre: [Drama]
+        - any:
+            - rating: {source: imdb, min: 7}
+            - rating: {source: tmdb, min: 7}
+    unless: [{tag: dev-protected}]
+
+  - name: series-metadata
+    target: sonarr
+    level: series
+    preview: true
+    action: tag
+    tag: dev-metadata-ok
+    when:
+      all: [{tag: dev-episodes}, {status: ended}, {genre: [Drama]}]
+    unless: [{tag: dev-protected}]
+
+  - name: trim-seasons
+    target: sonarr
+    level: season
+    preview: true
+    action: delete_files
+    when:
+      all: [{tag: dev-episodes}, {has_file: true}, {keep_latest: {seasons: 1}}]
+    unless: [{tag: dev-protected}]
+
+  - name: trim-episodes
+    target: sonarr
+    level: episode
+    preview: true
+    action: delete_files
+    when:
+      all: [{tag: dev-episodes}, {has_file: true}, {keep_latest: {episodes: 1}}]
+    unless: [{tag: dev-protected}]
+
+  - name: recent-watch
+    target: radarr
+    preview: true
+    action: tag
+    tag: dev-history-ok
+    when:
+      all: [{tag: dev-watched}, {watched_within: 7d}]
+    unless: [{tag: dev-protected}]
+
+  - name: old-watch
+    target: radarr
+    preview: true
+    action: tag
+    tag: dev-history-ok
+    when:
+      all: [{tag: dev-oldwatch}, {not_watched_for: 30d}]
+    unless: [{tag: dev-protected}]
+
+  - name: protected-control
+    target: radarr
+    preview: true
+    action: tag
+    tag: dev-should-never-appear
+    when: {tag: dev-protected}
+    unless: [{tag: dev-protected}]
+
+list_proxy:
+  api_key: ${LIST_PROXY_API_KEY}
+  # Optional: uncomment after adding TMDB_READ_TOKEN to dev/.env.local.
+  # Optional for TMDB sources and extra metadata such as year or rating.
+  # tmdb_token: ${TMDB_READ_TOKEN}
+  sources:
+    fixture:
+      type: stevenlu
+      url: http://fixtures:8000/movies.json
+    # Optional external examples; uncomment one and add its source name to a list.
+    # tmdb_popular:
+    #   type: tmdb
+    #   mode: popular
+    #   media_type: movie
+    # tmdb_trending:
+    #   type: tmdb
+    #   mode: trending
+    #   media_type: movie
+    #   time_window: week
+    # tmdb_series_popular:
+    #   type: tmdb
+    #   mode: popular
+    #   media_type: series
+    # tmdb_saved:
+    #   type: tmdb
+    #   mode: list
+    #   list_id: 12345  # Replace with your test list ID.
+    # trakt_popular:
+    #   type: trakt
+    #   mode: popular
+    #   media_type: movie
+    #   client_id: ${TRAKT_CLIENT_ID}
+    # trakt_trending:
+    #   type: trakt
+    #   mode: trending
+    #   media_type: movie
+    #   client_id: ${TRAKT_CLIENT_ID}
+    # trakt_watchlist:
+    #   type: trakt
+    #   mode: watchlist
+    #   client_id: ${TRAKT_CLIENT_ID}
+    #   token: ${TRAKT_ACCESS_TOKEN}
+    # trakt_saved:
+    #   type: trakt
+    #   mode: list
+    #   user: your-test-user
+    #   list_id: your-test-list
+    #   client_id: ${TRAKT_CLIENT_ID}
+    #   token: ${TRAKT_ACCESS_TOKEN}
+    # plex_watchlist:
+    #   type: plex_watchlist
+    #   token: ${PLEX_TOKEN}
+  lists:
+    movies:
+      target: radarr
+      sources: [fixture]
+      when: {streaming: my_providers}
+      on_unknown: include
+      schedule: '* * * * *'
+    # This IMDb-only fixture source has no year: demonstrate unknown exclusion.
+    movies-strict:
+      target: radarr
+      sources: [fixture]
+      when: {year: {max: 1900}}
+      on_unknown: exclude
+    # Optional Sonarr feed: enable tmdb_series_popular above and a TMDB read token.
+    # series:
+    #   target: sonarr
+    #   sources: [tmdb_series_popular]
+    #   when: {streaming: my_providers}
+    #   on_unknown: include

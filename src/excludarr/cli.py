@@ -25,7 +25,8 @@ state: dict = {"config": None, "debug": False}
 FormatOpt = Annotated[
     OutputFormat, typer.Option("-o", "--output", help="Table, JSON or YAML output.")
 ]
-ShowAllOpt = Annotated[bool, typer.Option("--show-all", help="Show all available match context.")]
+DetailsOpt = Annotated[bool, typer.Option("--details", help="Show all available match context.")]
+ShowAllOpt = Annotated[bool, typer.Option("--show-all", hidden=True)]
 RefreshOpt = Annotated[bool, typer.Option("--refresh", help="Refresh cache entries as needed.")]
 
 
@@ -193,8 +194,8 @@ def _report(
     format=OutputFormat.table,
     show_all=False,
 ) -> None:
-    from excludarr import engine
     from excludarr.clients.http import HttpClient
+    from excludarr.execution import execute_rules
 
     _check_rule(ctx, rule)
     structured = format != OutputFormat.table
@@ -367,7 +368,7 @@ def _report(
 
     try:
         with progress:
-            engine.run(
+            execute_rules(
                 ctx,
                 dry_run=dry_run,
                 diagnostics=state["debug"],
@@ -386,6 +387,7 @@ def _report(
     finally:
         for client in clients:
             client.on_wait = None
+        ctx.clients.close()
         doc.update(
             reporting.run_document(reports, dry_run=dry_run, sort=sort, diagnostics=state["debug"])
         )
@@ -406,6 +408,7 @@ def run(
     media_type: MediaTypeOpt = None,
     progress: Annotated[bool, typer.Option("--progress", help="Show live progress.")] = False,
     format: FormatOpt = OutputFormat.table,
+    details: DetailsOpt = False,
     show_all: ShowAllOpt = False,
     refresh: RefreshOpt = False,
 ) -> None:
@@ -422,7 +425,7 @@ def run(
             yes=yes,
             show_progress=progress,
             format=format,
-            show_all=show_all,
+            show_all=details or show_all,
         )
 
 
@@ -433,6 +436,7 @@ def preview(
     media_type: MediaTypeOpt = None,
     progress: Annotated[bool, typer.Option("--progress", help="Show live progress.")] = False,
     format: FormatOpt = OutputFormat.table,
+    details: DetailsOpt = False,
     show_all: ShowAllOpt = False,
     refresh: RefreshOpt = False,
 ) -> None:
@@ -447,7 +451,7 @@ def preview(
             media_type=media_type,
             show_progress=progress,
             format=format,
-            show_all=show_all,
+            show_all=details or show_all,
         )
 
 
@@ -626,6 +630,11 @@ def config_validate(format: FormatOpt = OutputFormat.table) -> None:
             }
             for name, rule in proxy_rules.items()
         )
+        from excludarr.scheduling import schedule_warnings
+
+        doc["warnings"] = schedule_warnings(ctx.config, datetime.now(UTC))
+        for warning in doc["warnings"]:
+            typer.echo(f"warning: {warning}", err=True)
         doc["summary"] = {"valid": True, "count": len(doc["items"])}
         if format == OutputFormat.table:
             output.print_rows(
@@ -661,7 +670,8 @@ def _list_config():
 def _list_refresh(name: str | None, format: OutputFormat, *, publish: bool):
     from excludarr.clients.http import IntegrationError
     from excludarr.config import ConfigError
-    from excludarr.lists.service import refresh_list
+    from excludarr.execution import execute_feed
+    from excludarr.locking import WorkBusy
 
     with _command("lists refresh" if publish else "lists preview", format) as doc:
         config, repo = _list_config()
@@ -671,12 +681,14 @@ def _list_refresh(name: str | None, format: OutputFormat, *, publish: bool):
         failed = False
         for slug in names:
             try:
-                result = refresh_list(config, slug, repo, datetime.now(UTC), publish=publish)
+                result = execute_feed(config, slug, repo, datetime.now(UTC), publish=publish)
                 doc["items"].append(result)
                 failed |= any(
                     item.get("unknown", False) and item["decision"] == "excluded"
                     for item in result["items"]
                 )
+            except WorkBusy:
+                raise
             except (IntegrationError, ConfigError) as error:
                 doc["errors"].append(str(error))
                 failed = True
@@ -808,23 +820,91 @@ def serve(
         except OSError as error:
             raise ConfigError("cannot bind list server address") from error
         typer.echo(f"Serving list snapshots on {host}:{port}", err=True)
-        output.print_rows(
-            "List endpoints",
-            {"name": "List", "target": "Target", "url": "URL"},
-            [
-                {
-                    "name": name,
-                    "target": rule.target.title(),
-                    "url": f"http://{host}:{port}/lists/{name}",
-                }
-                for name, rule in config.list_proxy.lists.items()
-            ],
-            Console(stderr=True),
-        )
-        typer.echo("Append ?apikey=<API_KEY> to each URL using your list_proxy.api_key.", err=True)
+        output.print_feed_endpoints(config, host, port, Console(stderr=True))
         try:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
         finally:
             server.server_close()
+
+
+@app.command("daemon")
+def daemon_command(
+    host: Annotated[str, typer.Option(help="Feed HTTP bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(min=1, max=65535, help="Feed HTTP port.")] = 8989,
+):
+    """Run scheduled library rules and list refreshes, serving configured feeds."""
+    import signal
+    from threading import Event
+    from zoneinfo import ZoneInfo
+
+    from excludarr.config import ConfigError, database_url, load_config
+    from excludarr.daemon import run_daemon, safe_error
+    from excludarr.jobs import Planner, configured_jobs
+    from excludarr.locking import daemon_lock, require_daemon_database
+    from excludarr.scheduling import schedule_warnings
+    from excludarr.storage.repo import Repo
+
+    with _command("daemon", OutputFormat.table):
+        config, path = load_config(state["config"])
+        url = database_url(config, path)
+        require_daemon_database(url)
+        with daemon_lock(url):
+            try:
+                repo = Repo(url)
+                jobs = configured_jobs(config)
+                if not jobs and config.list_proxy is None:
+                    raise ConfigError("daemon needs scheduled jobs or configured list feeds")
+                now = datetime.now(UTC)
+                planner = Planner(jobs, config.scheduler.timezone, now, repo.job_watermarks())
+                typer.echo(f"Starting daemon · timezone {config.scheduler.timezone}", err=True)
+                output.print_rows(
+                    "Scheduled jobs",
+                    {"kind": "Kind", "name": "Name", "schedule": "Cron", "next_due": "Next run"},
+                    [
+                        row
+                        | {
+                            "next_due": row["next_due"]
+                            .astimezone(ZoneInfo(config.scheduler.timezone))
+                            .isoformat()
+                        }
+                        for row in planner.snapshot()
+                    ],
+                    Console(stderr=True),
+                )
+                if config.list_proxy is not None:
+                    output.print_feed_endpoints(config, host, port, Console(stderr=True))
+                for warning in schedule_warnings(config, now):
+                    typer.echo(f"warning: {warning}", err=True)
+                stop = Event()
+                previous = {}
+                try:
+                    for signum in (signal.SIGINT, signal.SIGTERM):
+                        previous[signum] = signal.signal(signum, lambda *_: stop.set())
+                    run_daemon(config, repo, host=host, port=port, stop=stop)
+                finally:
+                    for signum, handler in previous.items():
+                        signal.signal(signum, handler)
+            except ConfigError:
+                raise
+            except Exception as error:
+                raise ConfigError(safe_error(config, error)) from error
+
+
+schedule_app = typer.Typer(help="Scheduled job status.", no_args_is_help=True)
+app.add_typer(schedule_app, name="schedule")
+
+
+@schedule_app.command("status")
+def schedule_status(format: FormatOpt = OutputFormat.table):
+    """Show local daemon and scheduled job state without integration requests."""
+    from excludarr.config import database_url, load_config
+    from excludarr.storage.repo import Repo
+
+    with _command("schedule status", format) as doc:
+        config, path = load_config(state["config"])
+        repo = Repo(database_url(config, path))
+        doc.update(reporting.schedule_document(config, repo.scheduler_status(), datetime.now(UTC)))
+        if format == OutputFormat.table:
+            output.print_schedule(doc, Console())

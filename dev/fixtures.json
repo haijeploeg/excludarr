@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "movies": [
+    {"role": "delete", "id": 550, "file": true},
+    {"role": "files", "id": 603, "file": true},
+    {"role": "monitor", "id": 272, "file": false, "monitored": false},
+    {"role": "unmonitor", "id": 680, "file": true},
+    {"role": "tag", "id": 13, "file": true},
+    {"role": "grace", "id": 155, "file": true},
+    {"role": "watched", "id": 862, "file": true},
+    {"role": "oldwatch", "id": 120, "file": true},
+    {"role": "protected", "id": 1891, "file": true}
+  ],
+  "series": [
+    {"role": "episodes", "id": 81189, "file": true},
+    {"role": "seasons", "id": 121361, "file": true},
+    {"role": "protected", "id": 73244, "file": true}
+  ]
+}

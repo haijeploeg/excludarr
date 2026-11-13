@@ -5,10 +5,20 @@ from typing import Any
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, delete, func, select, update
 from sqlalchemy.orm import Session
 
-from excludarr.storage.models import Cache, Exception_, History, ListSnapshot, Queue
+from excludarr.jobs import JobKey, JobSpec
+from excludarr.storage.models import (
+    Cache,
+    DaemonState,
+    Exception_,
+    History,
+    JobExecution,
+    ListSnapshot,
+    Queue,
+    ScheduledJob,
+)
 
 MIGRATIONS = str(Path(__file__).parent / "migrations")
 
@@ -228,3 +238,138 @@ class Repo:
                 session.add(row)
             row.last_attempt_at = at
             row.last_error = error
+
+    @staticmethod
+    def _scheduler_owned(session, instance):
+        row = session.get(DaemonState, 1)
+        return row is not None and row.instance == instance and row.stopped_at is None
+
+    def scheduler_start(
+        self, instance: str, jobs: list[JobSpec], timezone: str, at: datetime
+    ) -> None:
+        with Session(self._engine) as session, session.begin():
+            session.execute(
+                update(JobExecution)
+                .where(JobExecution.finished_at.is_(None))
+                .values(
+                    finished_at=at,
+                    outcome="interrupted",
+                    error="previous daemon stopped before completion",
+                )
+            )
+            session.execute(delete(ScheduledJob))
+            session.merge(
+                DaemonState(
+                    id=1,
+                    instance=instance,
+                    timezone=timezone,
+                    started_at=at,
+                    heartbeat_at=at,
+                    stopped_at=None,
+                )
+            )
+            for job in jobs:
+                session.add(
+                    ScheduledJob(
+                        kind=job.key[0],
+                        name=job.key[1],
+                        instance=instance,
+                        schedule=job.schedule,
+                        state="idle",
+                    )
+                )
+
+    def scheduler_heartbeat(self, instance: str, at: datetime) -> None:
+        with Session(self._engine) as session, session.begin():
+            session.execute(
+                update(DaemonState)
+                .where(
+                    DaemonState.id == 1,
+                    DaemonState.instance == instance,
+                    DaemonState.stopped_at.is_(None),
+                )
+                .values(heartbeat_at=at)
+            )
+
+    def scheduler_stop(self, instance: str, at: datetime) -> None:
+        with Session(self._engine) as session, session.begin():
+            session.execute(
+                update(DaemonState)
+                .where(DaemonState.id == 1, DaemonState.instance == instance)
+                .values(stopped_at=at)
+            )
+
+    def scheduler_update(self, instance: str, jobs: list[dict]) -> None:
+        with Session(self._engine) as session, session.begin():
+            if not self._scheduler_owned(session, instance):
+                return
+            for data in jobs:
+                row = session.get(ScheduledJob, (data["kind"], data["name"]))
+                if row is not None and row.instance == instance:
+                    for field in ("next_due", "pending_due", "state", "last_dispatched_due"):
+                        setattr(row, field, data[field])
+
+    def job_start(self, instance: str, key: JobKey, due: datetime, at: datetime) -> int:
+        with Session(self._engine) as session, session.begin():
+            if not self._scheduler_owned(session, instance):
+                raise RuntimeError("daemon no longer owns scheduler state")
+            row = JobExecution(
+                instance=instance, kind=key[0], name=key[1], scheduled_at=due, started_at=at
+            )
+            session.add(row)
+            job = session.get(ScheduledJob, key)
+            if job is not None:
+                job.state = "running"
+                job.last_dispatched_due = max(due, job.last_dispatched_due or due)
+            session.flush()
+            return row.id
+
+    def job_finish(
+        self,
+        instance: str,
+        run_id: int,
+        outcome: str,
+        summary: dict,
+        error: str | None,
+        at: datetime,
+    ) -> None:
+        with Session(self._engine) as session, session.begin():
+            if not self._scheduler_owned(session, instance):
+                return
+            row = session.get(JobExecution, run_id)
+            if row is None or row.instance != instance or row.finished_at is not None:
+                return
+            row.finished_at, row.outcome, row.summary, row.error = at, outcome, summary, error
+            job = session.get(ScheduledJob, (row.kind, row.name))
+            if job is not None:
+                job.state = "idle"
+
+    def job_watermarks(self) -> dict[JobKey, datetime]:
+        with Session(self._engine) as session:
+            return {
+                (kind, name): due
+                for kind, name, due in session.execute(
+                    select(
+                        JobExecution.kind, JobExecution.name, func.max(JobExecution.scheduled_at)
+                    ).group_by(JobExecution.kind, JobExecution.name)
+                )
+            }
+
+    def scheduler_status(self) -> dict:
+        def fields(row):
+            return {column.name: getattr(row, column.name) for column in row.__table__.columns}
+
+        with Session(self._engine) as session:
+            daemon = session.get(DaemonState, 1)
+            jobs = []
+            for row in session.scalars(
+                select(ScheduledJob).order_by(ScheduledJob.kind, ScheduledJob.name)
+            ):
+                last = session.scalars(
+                    select(JobExecution)
+                    .where(JobExecution.kind == row.kind, JobExecution.name == row.name)
+                    .order_by(JobExecution.id.desc())
+                    .limit(1)
+                ).first()
+                jobs.append(fields(row) | {"last_execution": fields(last) if last else None})
+            return {"daemon": fields(daemon) if daemon else None, "jobs": jobs}
