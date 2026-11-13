@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from rich.text import Text
 from typer.testing import CliRunner
 
 from excludarr.cli import app
@@ -217,7 +218,7 @@ def test_serve_lists_endpoints_without_exposing_key(monkeypatch):
     )
     result = CliRunner().invoke(app, ["serve"], terminal_width=180)
     assert result.exit_code == 0, result.output
-    text = " ".join(result.stderr.split())
+    text = " ".join(Text.from_ansi(result.stderr).plain.split())
     assert "movies Radarr http://127.0.0.1:8989/lists/movies" in text
     assert "series Sonarr http://127.0.0.1:8989/lists/series" in text
     assert "?apikey=<API_KEY>" in text
