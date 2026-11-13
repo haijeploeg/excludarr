@@ -1,7 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from excludarr.storage.models import KnownRatingKey
 from excludarr.storage.repo import Repo
 
 
@@ -103,3 +106,78 @@ def test_reporting_migration_preserves_legacy_rows(tmp_path):
     new = repo.history()[0]
     assert new.size_bytes == 200 and new.evidence == proof
     assert new.side_effect_errors == ["seerr: timeout"]
+
+
+def test_rating_keys_record_is_idempotent(repo):
+    pairs = {("movie", "tmdb://1"): "100", ("show", "tvdb://2"): "200"}
+    repo.rating_keys_record(pairs)
+    with Session(repo._engine) as s:
+        first = {r.rating_key: r.first_seen_at for r in s.scalars(select(KnownRatingKey))}
+    repo.rating_keys_record(pairs)
+    with Session(repo._engine) as s:
+        rows = list(s.scalars(select(KnownRatingKey)))
+    assert len(rows) == 2
+    assert {r.rating_key: r.first_seen_at for r in rows} == first
+
+
+def test_rating_keys_keep_old_keys_after_readd(repo):
+    repo.rating_keys_record({("movie", "tmdb://1"): "100"})
+    repo.rating_keys_record({("movie", "tmdb://1"): "200"})
+    assert repo.rating_keys_for("movie", ["tmdb://1"]) == {"100", "200"}
+
+
+def test_rating_keys_rematch_removes_stale_external_id(repo):
+    repo.rating_keys_record({("movie", "tmdb://1"): "100", ("movie", "imdb://tt1"): "100"})
+    repo.rating_keys_record({("movie", "tmdb://2"): "100"})
+    assert repo.rating_keys_for("movie", ["tmdb://1", "imdb://tt1"]) == set()
+    assert repo.rating_keys_for("movie", ["tmdb://2"]) == {"100"}
+
+
+def test_rating_keys_prune_keeps_listed_ids(repo):
+    repo.rating_keys_record(
+        {
+            ("movie", "tmdb://1"): "1",
+            ("movie", "tmdb://2"): "2",
+            ("movie", "tmdb://3"): "3",
+            ("show", "tvdb://9"): "9",
+        }
+    )
+    assert repo.rating_keys_prune({"movie"}, {("movie", "tmdb://1")}) == 2
+    assert repo.rating_keys_for("movie", ["tmdb://1", "tmdb://2", "tmdb://3"]) == {"1"}
+    assert repo.rating_keys_for("show", ["tvdb://9"]) == {"9"}
+
+
+def test_rating_keys_prune_keeps_key_with_one_current_id(repo):
+    repo.rating_keys_record(
+        {
+            ("movie", "tmdb://1"): "1",
+            ("movie", "tvdb://11"): "1",  # Plex lists it, Radarr does not
+            ("movie", "tmdb://2"): "2",
+            ("movie", "tvdb://22"): "2",
+        }
+    )
+    assert repo.rating_keys_prune({"movie"}, {("movie", "tmdb://1")}) == 1
+    assert repo.rating_keys_for("movie", ["tvdb://11"]) == {"1"}
+    assert repo.rating_keys_for("movie", ["tmdb://2", "tvdb://22"]) == set()
+
+
+def test_known_rating_key_migration_upgrades_existing_db(tmp_path):
+    import sqlite3
+
+    from alembic import command
+    from alembic.config import Config
+
+    from excludarr.storage.repo import MIGRATIONS
+
+    path = tmp_path / "old.db"
+    url = f"sqlite:///{path}"
+    cfg = Config()
+    cfg.set_main_option("script_location", MIGRATIONS)
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "0005")
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO exception VALUES ('r', 'k', 'Film', '2026-01-01')")
+    repo = Repo(url)
+    assert repo.exceptions_for("r") == {"k"}
+    repo.rating_keys_record({("movie", "tmdb://1"): "100"})
+    assert repo.rating_keys_for("movie", ["tmdb://1"]) == {"100"}

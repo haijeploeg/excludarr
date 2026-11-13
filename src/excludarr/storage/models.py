@@ -83,6 +83,14 @@ class ListSnapshot(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
 
 
+class KnownRatingKey(Base):
+    __tablename__ = "known_rating_key"
+    kind: Mapped[str] = mapped_column(String, primary_key=True)  # "movie" | "show"
+    external_id: Mapped[str] = mapped_column(String, primary_key=True)  # "tmdb://19933"
+    rating_key: Mapped[str] = mapped_column(String, primary_key=True)
+    first_seen_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 class DaemonState(Base):
     __tablename__ = "daemon_state"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

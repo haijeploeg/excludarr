@@ -435,6 +435,10 @@ def print_rows(title: str, columns: dict[str, str], rows: list[dict], console: C
     console.print(table)
 
 
+def print_rating_keys_prune(doc: dict, console: Console) -> None:
+    heading(console, f"Removed {doc['summary']['removed']} known rating keys")
+
+
 def print_cache(doc: dict, console: Console) -> None:
     rows = []
     for group in doc["items"]:

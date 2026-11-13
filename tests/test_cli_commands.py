@@ -811,3 +811,57 @@ def test_quality_evidence_in_table_and_structured_preview(env, monkeypatch, form
             {"provider_id": 8, "type": "FLATRATE", "quality": "4k", "provider": "Netflix"}
         ]
     assert env["executed"] == []
+
+
+def _arr_clients(monkeypatch, *, movies=None, series=None, sonarr_error=None):
+    from types import SimpleNamespace
+
+    from excludarr.clients.http import IntegrationError
+
+    def sonarr_series():
+        if sonarr_error:
+            raise IntegrationError("sonarr", "down")
+        return series or []
+
+    clients = Clients(
+        radarr=SimpleNamespace(movies=lambda: movies or []),
+        sonarr=SimpleNamespace(series=sonarr_series),
+    )
+    monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, c: clients))
+
+
+def test_rating_keys_prune_removes_ids_not_in_arr(env, monkeypatch):
+    _arr_clients(monkeypatch, movies=[{"tmdbId": 1, "imdbId": "tt1"}], series=[{"tvdbId": 9}])
+    env["repo"].rating_keys_record(
+        {("movie", "tmdb://1"): "a", ("movie", "tmdb://2"): "b", ("show", "tvdb://9"): "c"}
+    )
+    result = env["invoke"]("rating-keys", "prune", "-o", "json")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["summary"] == {"removed": 1}
+    assert env["repo"].rating_keys_for("movie", ["tmdb://1", "tmdb://2"]) == {"a"}
+    assert env["repo"].rating_keys_for("show", ["tvdb://9"]) == {"c"}
+
+
+def test_rating_keys_prune_keeps_unmonitored_items(env, monkeypatch):
+    _arr_clients(monkeypatch, movies=[{"tmdbId": 1, "monitored": False}])
+    env["repo"].rating_keys_record({("movie", "tmdb://1"): "a"})
+    result = env["invoke"]("rating-keys", "prune")
+    assert result.exit_code == 0, result.output
+    assert "Removed 0 known rating keys" in result.output
+    assert env["repo"].rating_keys_for("movie", ["tmdb://1"]) == {"a"}
+
+
+def test_rating_keys_prune_deletes_nothing_on_integration_error(env, monkeypatch):
+    _arr_clients(monkeypatch, sonarr_error=True)
+    env["repo"].rating_keys_record({("movie", "tmdb://2"): "b", ("show", "tvdb://9"): "c"})
+    result = env["invoke"]("rating-keys", "prune")
+    assert result.exit_code == 1
+    assert env["repo"].rating_keys_for("movie", ["tmdb://2"]) == {"b"}
+    assert env["repo"].rating_keys_for("show", ["tvdb://9"]) == {"c"}
+
+
+def test_rating_keys_prune_json(env, monkeypatch):
+    _arr_clients(monkeypatch)
+    result = env["invoke"]("rating-keys", "prune", "-o", "json")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["summary"]["removed"] == 0

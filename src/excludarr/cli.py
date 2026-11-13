@@ -473,6 +473,34 @@ def cache_status(format: FormatOpt = OutputFormat.table) -> None:
             output.print_cache(doc, Console())
 
 
+RADARR_IDS = (("tmdb", "tmdbId"), ("imdb", "imdbId"))
+SONARR_IDS = (("tvdb", "tvdbId"), ("tmdb", "tmdbId"), ("imdb", "imdbId"))
+
+rating_keys_app = typer.Typer(help="Known Plex rating keys.", no_args_is_help=True)
+app.add_typer(rating_keys_app, name="rating-keys")
+
+
+@rating_keys_app.command("prune")
+def rating_keys_prune(format: FormatOpt = OutputFormat.table) -> None:
+    """Delete stored rating keys of items that Radarr and Sonarr no longer have."""
+    with _command("rating-keys prune", format) as doc:
+        ctx = _context()
+        kinds: set[str] = set()
+        keep: set[tuple[str, str]] = set()
+        # Fetch every list before any delete: an IntegrationError here deletes nothing.
+        if ctx.clients.radarr:
+            kinds.add("movie")
+            for m in ctx.clients.radarr.movies():
+                keep |= {("movie", f"{p}://{m[k]}") for p, k in RADARR_IDS if m.get(k)}
+        if ctx.clients.sonarr:
+            kinds.add("show")
+            for s in ctx.clients.sonarr.series():
+                keep |= {("show", f"{p}://{s[k]}") for p, k in SONARR_IDS if s.get(k)}
+        doc["summary"] = {"removed": ctx.repo.rating_keys_prune(kinds, keep)}
+        if format == OutputFormat.table:
+            output.print_rating_keys_prune(doc, Console())
+
+
 @app.command()
 def queue(sort: SortOpt = None, format: FormatOpt = OutputFormat.table) -> None:
     """List the grace queue."""

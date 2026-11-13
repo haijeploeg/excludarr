@@ -267,6 +267,7 @@ excludarr [--config PATH] [--debug] [--version] COMMAND
   rescue ITEM_KEY --rule NAME [--forever | --once]
   history [--limit N]
   cache status
+  rating-keys prune
   exceptions list | remove ITEM_KEY --rule NAME
   providers list [--locale nl_NL]
   config validate
@@ -318,6 +319,11 @@ it expires. Expired entries refresh the next time they are used. With `--debug`,
 status lists individual entries and preview or run logs lookups and retries. Add
 `--refresh` to preview or run to bypass cached JustWatch values for the selected operation.
 Failed refreshes leave existing cache entries intact and those values are unavailable to that run.
+
+Watch history stays known after Plex removes or re-adds an item. Excludarr stores every Plex
+rating key it sees for an item and matches Tautulli history on all of them. This starts from
+the first run after the upgrade. Run `excludarr rating-keys prune` to delete the stored keys of
+items that Radarr and Sonarr no longer have. It deletes nothing if Radarr or Sonarr fails.
 
 </details>
 

@@ -261,3 +261,88 @@ def test_watch_unknown_when_nothing_aired(tmp_path, minimal_cfg):
     # Specials do not count as something to watch for a series.
     specials = (EpisodeRef(9, 0, 1, True, None, 0, True),)
     assert ctx.watch(mk_series(tmdb_id=10, episodes=specials)) is None
+
+
+class BrokenPlex:
+    def items_by_guid(self):
+        raise IntegrationError("plex", "down")
+
+
+MOVIE = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=11)
+
+
+def test_plex_scan_records_rating_keys(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([]))
+    ctx.watch(MOVIE)
+    assert ctx.repo.rating_keys_for("movie", ["tmdb://11"]) == {"m1"}
+
+
+def test_failed_plex_scan_records_nothing(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=BrokenPlex(), tautulli=FakeTautulli([]))
+    ctx.watch(MOVIE)
+    assert ctx.repo.rating_keys_for("movie", ["tmdb://11"]) == set()
+
+
+def test_plex_scan_survives_storage_failure(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([row("m1", 1)]))
+
+    def boom(pairs):
+        raise RuntimeError("disk full")
+
+    ctx.repo.rating_keys_record = boom
+    assert ctx.watch(MOVIE).play_count == 1
+
+
+def test_watch_uses_stored_key_when_item_left_plex(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=FakePlex({}), tautulli=FakeTautulli([row("old", 1)]))
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    w = ctx.watch(MOVIE)
+    assert w.play_count == 1 and w.fully_watched is True
+
+
+def test_watch_combines_old_and_live_keys_movie(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([row("old", 5), row("m1", 1)]))
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    assert ctx.watch(MOVIE).play_count == 2
+
+
+def test_watch_combines_old_and_live_keys_series(tmp_path, minimal_cfg):
+    rows = [
+        row("e1", 5, 1, 1, gp="oldshow"),
+        row("e2", 3, 1, 2, gp="show1"),
+        row("e3", 1, 2, 1, gp="oldshow"),
+    ]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    ctx.repo.rating_keys_record({("show", "tmdb://10"): "oldshow"})
+    w = ctx.watch(season())
+    assert w.play_count == 2 and w.fully_watched is True
+
+
+def test_watch_counts_each_row_once_after_tautulli_remap(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([row("m1", 1)]))
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    assert ctx.watch(MOVIE).play_count == 1
+
+
+def test_watch_uses_stored_keys_when_plex_fails(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=BrokenPlex(), tautulli=FakeTautulli([row("old", 1)]))
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    assert ctx.watch(MOVIE).play_count == 1
+
+
+def test_watch_unknown_without_any_key(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=FakePlex({}), tautulli=FakeTautulli([row("old", 1)]))
+    assert ctx.watch(MOVIE) is None
+
+
+def test_watch_unknown_when_tautulli_fails_with_stored_keys(tmp_path, minimal_cfg):
+    t = FakeTautulli(exc=IntegrationError("tautulli", "down"))
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=FakePlex({}), tautulli=t)
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    assert ctx.watch(MOVIE) is None
+
+
+def test_viewer_labels_not_in_plex_only_without_keys(tmp_path, minimal_cfg):
+    ctx = make_ctx(tmp_path, minimal_cfg, plex=FakePlex({}), tautulli=FakeTautulli([]))
+    ctx.repo.rating_keys_record({("movie", "tmdb://11"): "old"})
+    assert ctx.movie_viewer_labels(MOVIE) == []

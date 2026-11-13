@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,6 +16,7 @@ from excludarr.storage.models import (
     Exception_,
     History,
     JobExecution,
+    KnownRatingKey,
     ListSnapshot,
     Queue,
     ScheduledJob,
@@ -202,6 +204,48 @@ class Repo:
         now = _now()
         with Session(self._engine) as s, s.begin():
             s.merge(Cache(key=key, value=value, fetched_at=now, expires_at=now + ttl))
+
+    def rating_keys_record(self, pairs: dict[tuple[str, str], str]) -> None:
+        wanted = {(kind, ext, key) for (kind, ext), key in pairs.items()}
+        seen = {key for _, _, key in wanted}
+        with Session(self._engine) as s, s.begin():
+            # Filter in Python: an IN over every library key can exceed SQLite's variable limit.
+            stored = {
+                (r.kind, r.external_id, r.rating_key)
+                for r in s.scalars(select(KnownRatingKey))
+                if r.rating_key in seen
+            }
+            # A rematch keeps the key but changes its external ids: drop the stale rows.
+            for kind, ext, key in stored - wanted:
+                s.execute(
+                    delete(KnownRatingKey).where(
+                        KnownRatingKey.kind == kind,
+                        KnownRatingKey.external_id == ext,
+                        KnownRatingKey.rating_key == key,
+                    )
+                )
+            for kind, ext, key in wanted - stored:
+                s.add(
+                    KnownRatingKey(kind=kind, external_id=ext, rating_key=key, first_seen_at=_now())
+                )
+
+    def rating_keys_for(self, kind: str, external_ids: Iterable[str]) -> set[str]:
+        with Session(self._engine) as s:
+            stmt = select(KnownRatingKey.rating_key).where(
+                KnownRatingKey.kind == kind, KnownRatingKey.external_id.in_(list(external_ids))
+            )
+            return set(s.scalars(stmt))
+
+    def rating_keys_prune(self, kinds: set[str], keep: set[tuple[str, str]]) -> int:
+        with Session(self._engine) as s, s.begin():
+            rows = s.scalars(select(KnownRatingKey).where(KnownRatingKey.kind.in_(kinds))).all()
+            # Keep a whole key while any of its ids is current: Plex lists ids, such as a
+            # movie's tvdb id, that Radarr and Sonarr do not have.
+            live = {(r.kind, r.rating_key) for r in rows if (r.kind, r.external_id) in keep}
+            gone = [r for r in rows if (r.kind, r.rating_key) not in live]
+            for r in gone:
+                s.delete(r)
+            return len({(r.kind, r.rating_key) for r in gone})
 
     def list_snapshot(self, slug: str) -> SnapshotEntry | None:
         with Session(self._engine) as session:
