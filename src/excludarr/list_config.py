@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, PlainValidator, SecretStr, model_validator
 
 from excludarr.conditions import Condition, leaves, parse_condition
+from excludarr.scheduling import Schedule
 
 ParsedCondition = Annotated[Condition, PlainValidator(parse_condition)]
 Secret = Annotated[SecretStr, Field(min_length=1)]
@@ -88,6 +89,7 @@ class ProxyList(BaseModel):
     when: ParsedCondition
     unless: list[ParsedCondition] = []
     on_unknown: Literal["include", "exclude"] = "include"
+    schedule: Schedule = None
 
     @model_validator(mode="after")
     def _conditions(self):

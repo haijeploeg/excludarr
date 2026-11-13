@@ -30,8 +30,26 @@ Requires Python 3.12 or newer.
 
 ## Running the testing environment
 
-`docker compose up` starts a Radarr instance on `http://localhost:7878` and a Sonarr instance on
-`http://localhost:8989`. Add movies and series by hand.
+The root Compose file starts an isolated development project with real Radarr, Sonarr,
+Plex, Tautulli and Seerr, generated clips and repeatable test fixtures. Follow
+[the stack guide](../dev/README.md) for startup, the one-time Plex test account setup,
+seeding, manual scenarios, destructive integration checks, daemon use and reset.
+Manual commands all use the tracked `dev/excludarr.yml`; private keys are injected
+from the development volumes. Generated configs are internal to `make dev-check`.
+
+```sh
+make dev-up
+# After one-time account setup:
+make dev-seed
+make dev ARGS="preview"
+make dev-check
+```
+
+Arr-only checks work before account setup. Full `seed` and `check` require completing
+the local Plex/Tautulli/Seerr wizards. Destructive checks run only when explicitly
+invoked and use this stack's fixed internal addresses and fixture identities. Never
+mount personal libraries or configuration into this stack. Default pytest remains
+offline; these real integration checks are separate.
 
 ## Recording the README demo
 
@@ -62,3 +80,13 @@ On a release it bumps the version in `pyproject.toml` and `src/excludarr/__init_
 publishing) and pushes `ghcr.io/haijeploeg/excludarr` with the `X.Y.Z`, `X.Y`, `X` and `latest`
 tags. PRs are merged with "Rebase and merge" only, so every commit in a PR lands on `main` as
 is: give each commit a conventional message.
+
+
+## Daemon and scheduler
+
+The daemon calls the existing core through execution.py, sharing native SQLite-file
+locks with manual mutations. scheduling.py owns cron/DST; jobs.py is a pure planner;
+daemon.py owns job execution, HTTP/heartbeat and shutdown. Use fake clocks/Events
+and mocked integrations for unit tests. Destructive integration checks are confined
+to the explicitly started disposable development stack; never target a personal library.
+Scheduler records ship in migration 0005. See docs/daemon.md for runtime semantics.

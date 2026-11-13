@@ -1,0 +1,15 @@
+# Copy to compose.yml. config/excludarr.yml: daemon-example.yml; credentials in .env.
+# Stop the old list-refresh container and library cronjobs before starting this.
+services:
+  excludarr:
+    image: ghcr.io/haijeploeg/excludarr
+    command: [daemon, --host, 0.0.0.0]
+    env_file: .env
+    environment:
+      CRON_MODE: "false"
+    volumes:
+      - ./config:/config
+    ports:
+      - "8989:8989"
+    stop_grace_period: 5m
+    restart: unless-stopped

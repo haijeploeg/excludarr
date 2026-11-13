@@ -10,6 +10,7 @@ from typing import Any
 from excludarr.actions import ActionResult, execute
 from excludarr.conditions import All, Any_, Evidence, describe, evaluate, leaves
 from excludarr.config import Rule
+from excludarr.diagnostics import safe_error
 from excludarr.facts import Context
 from excludarr.items import MediaItem, build_radarr_items, build_sonarr_items
 from excludarr.preview import plan_matches
@@ -46,6 +47,7 @@ class RuleReport:
     unknown_breakdown: Counter[str] = field(default_factory=Counter)
     skipped: set[str] = field(default_factory=set)
     declined: set[str] = field(default_factory=set)
+    warnings: list[str] = field(default_factory=list)
 
 
 def _series_key(key: str) -> str:
@@ -142,7 +144,7 @@ def evaluate_rule(
     )
 
 
-def _collection(ctx: Context, item: MediaItem | None, add: bool) -> None:
+def _collection(ctx: Context, item: MediaItem | None, add: bool) -> str | None:
     if not ctx.clients.plex or item is None:
         return
     name = ctx.config.integrations.plex.leaving_soon_collection
@@ -153,15 +155,20 @@ def _collection(ctx: Context, item: MediaItem | None, add: bool) -> None:
         plex = ctx.clients.plex
         (plex.add_to_collection if add else plex.remove_from_collection)(plex_item, name)
     except Exception as e:  # noqa: BLE001 - the collection never blocks queueing or execution
-        log.warning("Leaving Soon collection update failed for %s: %s", item.title, e)
+        message = safe_error(
+            ctx.config,
+            f"Leaving Soon collection update failed for {item.title}: {type(e).__name__}: {e}",
+        )
+        log.warning("%s", message)
+        return message
 
 
-def _uncollect(ctx: Context, item: MediaItem | None) -> None:
+def _uncollect(ctx: Context, item: MediaItem | None) -> str | None:
     """Remove from the collection unless another queue row still covers the same movie/show."""
     if item is not None and not any(
         _series_key(q.item_key) == _series_key(item.key) for q in ctx.repo.queue_all()
     ):
-        _collection(ctx, item, add=False)
+        return _collection(ctx, item, add=False)
 
 
 def run(
@@ -172,11 +179,17 @@ def run(
     on_report: Callable[[RuleReport], None] | None = None,
     rule_filter: str | None = None,
     target_filter: str | None = None,
+    rule_names: frozenset[str] | None = None,
+    should_stop: Callable[[], bool] = lambda: False,
+    on_rule_start: Callable[[Rule], None] | None = None,
+    on_rule_complete: Callable[[RuleReport], None] | None = None,
     select: Callable[[RuleReport], list[Match]] | None = None,
     confirm: Callable[[list[Match]], bool] = lambda m: True,
     describe_matches: Callable[[list[Match]], None] = lambda matches: None,
     progress: Callable[[str, int, int | None], None] = lambda message, done, total: None,
 ) -> list[RuleReport]:
+    if should_stop():
+        return []
     built: dict[tuple[str, str], list[MediaItem]] = {}
     prefetched: set[tuple[str, str]] = set()
 
@@ -197,7 +210,10 @@ def run(
     rules = [
         r
         for r in ctx.config.rules
-        if r.enabled and rule_filter in (None, r.name) and target_filter in (None, r.target)
+        if r.enabled
+        and rule_filter in (None, r.name)
+        and target_filter in (None, r.target)
+        and (rule_names is None or r.name in rule_names)
     ]
     # Preflight: fail on bad provider names or unreachable arrs before anything acts.
     for providers in provider_lists(rules):
@@ -205,8 +221,11 @@ def run(
         ctx.provider_ids(providers)
     for r in rules:
         items_for(r.target, r.level)
+    if should_stop():
+        return []
     names = {r.name for r in ctx.config.rules}
     target_prefix = f"{target_filter}:" if target_filter else ""
+    preflight_warnings = []
     if not dry_run:
         progress("Cleaning up the grace queue", 0, None)
         orphans = [
@@ -217,7 +236,8 @@ def run(
         for q in orphans:
             ctx.repo.queue_remove(q.rule, q.item_key)
         for q in orphans:
-            _uncollect(ctx, find(q.item_key) if ctx.clients.plex else None)
+            if warning := _uncollect(ctx, find(q.item_key) if ctx.clients.plex else None):
+                preflight_warnings.append(warning)
 
     removed: set[str] = set()
     predicted_removed: set[str] = set()
@@ -248,11 +268,16 @@ def run(
         for done, match in enumerate(matches, 1):
             if act(rule, match, report) and from_queue:
                 ctx.repo.queue_remove(rule.name, match.item.key)
-                _uncollect(ctx, match.item)
+                if warning := _uncollect(ctx, match.item):
+                    report.warnings.append(warning)
             progress(message, done, len(matches))
 
     reports = []
     for rule in rules:
+        if should_stop():
+            break
+        if on_rule_start:
+            on_rule_start(rule)
         items = items_for(rule.target, rule.level)
         uses_streaming = any(
             leaf.name == "streaming" for c in [rule.when, *rule.unless] for leaf in leaves(c)
@@ -263,6 +288,8 @@ def run(
         report = evaluate_rule(
             rule, items, ctx, removed, progress=progress, diagnostics=diagnostics
         )
+        report.warnings.extend(preflight_warnings)
+        preflight_warnings.clear()
         reports.append(report)
         if on_report is not None:
             on_report(report)
@@ -279,6 +306,8 @@ def run(
             )
         describe_matches(report.matches)
         if dry_run or rule.preview:
+            if on_rule_complete:
+                on_rule_complete(report)
             continue
         matches = select(report) if select else report.matches
         if select:
@@ -293,7 +322,8 @@ def run(
 
         def drop(key: str, title: str, rule=rule, by_key=by_key, report=report) -> None:
             ctx.repo.queue_remove(rule.name, key)
-            _uncollect(ctx, by_key.get(key))
+            if warning := _uncollect(ctx, by_key.get(key)):
+                report.warnings.append(warning)
             report.dropped.append(title)
 
         if not rule.grace_period:
@@ -305,6 +335,8 @@ def run(
                     execute_matches(rule, matches, report)
                 else:
                     report.declined.update(m.item.key for m in matches)
+            if on_rule_complete:
+                on_rule_complete(report)
             continue
 
         due = []
@@ -321,8 +353,8 @@ def run(
                     evidence=[asdict(entry) for entry in m.evidence],
                 )
                 report.queued.append((m, due_at))
-                if rule.leaving_soon_collection:
-                    _collection(ctx, m.item, add=True)
+                if rule.leaving_soon_collection and (warning := _collection(ctx, m.item, add=True)):
+                    report.warnings.append(warning)
             elif q.due_at <= ctx.now:
                 due.append(m)
             else:
@@ -341,4 +373,6 @@ def run(
             elif key not in matched:
                 drop(key, q.title)
         describe_matches([m for m, _ in report.pending if m.item.key in report.unknown])
+        if on_rule_complete:
+            on_rule_complete(report)
     return reports

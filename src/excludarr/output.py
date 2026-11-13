@@ -1,5 +1,6 @@
 """Rich views of the command report records."""
 
+from colorsys import hls_to_rgb
 from datetime import datetime
 
 from rich import box
@@ -254,8 +255,13 @@ def print_reports(doc: dict, console: Console, *, show_all: bool = False) -> Non
             )
             console.print(Text(hint, style="yellow"))
         console.print()
-    palette = ("cyan", "magenta", "blue", "bright_cyan", "bright_magenta", "bright_blue")
-    rule_styles = {rule["name"]: palette[index % len(palette)] for index, rule in enumerate(rules)}
+    rule_styles = {}
+    for index, rule in enumerate(rules):
+        # Golden-angle spacing keeps earlier colors stable when more rules are added.
+        rgb = hls_to_rgb((0.5 + index * 0.61803398875) % 1, 0.45, 0.7)
+        rule_styles[rule["name"]] = "#{:02x}{:02x}{:02x}".format(
+            *(round(channel * 255) for channel in rgb)
+        )
     show_timing = not dry_run or any(rule["grace_seconds"] for rule in rules)
     diagnostics = any("diagnostics" in rule for rule in rules)
     headers = ["Rule", "Action", "Matches", "Matched size"]
@@ -320,6 +326,8 @@ def print_reports(doc: dict, console: Console, *, show_all: bool = False) -> Non
         scope = f" ({', '.join(names)})" if len(names) < matching_rules else ""
         console.print(Text(f"On execution{scope} · " + "; ".join(effects)))
     for rule in rules:
+        for warning in rule.get("warnings", []):
+            console.print(Text(warning, style="yellow"))
         if rule["matches"] and rule["queue_effect"]:
             console.print(Text(f"{rule['name']} · On queueing  {rule['queue_effect']}"))
         if rule["dropped"]:
@@ -464,3 +472,73 @@ def print_cache(doc: dict, console: Console) -> None:
             ],
             console,
         )
+
+
+def print_feed_endpoints(config, host: str, port: int, console: Console) -> None:
+    print_rows(
+        "List endpoints",
+        {"name": "List", "target": "Target", "url": "URL"},
+        [
+            {
+                "name": name,
+                "target": rule.target.title(),
+                "url": f"http://{host}:{port}/lists/{name}",
+            }
+            for name, rule in config.list_proxy.lists.items()
+        ],
+        console,
+    )
+    console.print(
+        "Append ?apikey=<API_KEY> to each URL using your list_proxy.api_key.", markup=False
+    )
+
+
+def print_schedule(doc: dict, console: Console) -> None:
+    from zoneinfo import ZoneInfo
+
+    zone = ZoneInfo(doc["summary"]["timezone"])
+
+    def local(value):
+        return (
+            datetime.fromisoformat(value).astimezone(zone).strftime("%Y-%m-%d %H:%M %z")
+            if value
+            else "—"
+        )
+
+    rows = []
+    for item in doc["items"]:
+        last = item["last_execution"] or {}
+        outcome = last.get("outcome") or ("running" if last else "—")
+        rows.append(
+            item
+            | {
+                "next": local(item["next_due"]),
+                "last": local(last.get("finished_at")),
+                "outcome": Text(
+                    outcome,
+                    style={
+                        "success": "green",
+                        "warning": "yellow",
+                        "failed": "red",
+                        "interrupted": "yellow",
+                    }.get(outcome, ""),
+                ),
+                "error": last.get("error") or "—",
+            }
+        )
+    summary = doc["summary"]
+    print_rows(
+        f"Schedule · {summary['daemon']} · {summary['timezone']}",
+        {
+            "kind": "Kind",
+            "name": "Name",
+            "schedule": "Cron",
+            "state": "State",
+            "next": "Next run",
+            "last": "Last finish",
+            "outcome": "Outcome",
+            "error": "Last error",
+        },
+        rows,
+        console,
+    )

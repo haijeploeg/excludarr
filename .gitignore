@@ -122,3 +122,6 @@ providers.json
 
 # Local Excludarr configuration and diagnostics
 /sandbox/
+
+# Disposable development stack account settings
+/dev/.env.local

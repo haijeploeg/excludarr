@@ -306,7 +306,7 @@ def test_movie_table_contains_cached_provider_and_viewer_names(env, monkeypatch,
         ),
     )
     monkeypatch.setattr(Clients, "from_config", classmethod(lambda cls, cfg: clients))
-    result = env["invoke"](command, "--show-all", *(["-y"] if command == "run" else []))
+    result = env["invoke"](command, "--details", *(["-y"] if command == "run" else []))
     assert result.exit_code == 0, result.output
     assert "Netflix" in result.output and "Alice" in result.output
     assert "alice123" not in result.output
@@ -487,7 +487,7 @@ def test_debug_silences_httpx_request_logging(env):
 @pytest.mark.parametrize("format,parse", [("json", json.loads), ("yaml", yaml.safe_load)])
 def test_structured_output_and_confirmed_decline(env, format, parse):
     preview = env["invoke"]("preview", "-o", format)
-    expanded = env["invoke"]("preview", "-o", format, "--show-all")
+    expanded = env["invoke"]("preview", "-o", format, "--details")
     assert preview.exit_code == expanded.exit_code == 0
     doc = parse(preview.stdout)
     assert doc == parse(expanded.stdout)
@@ -719,7 +719,7 @@ def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
     assert "2020-01-01T" not in compact
     sink.seek(0)
     sink.truncate()
-    assert env["invoke"]("preview", "--show-all").exit_code == 0
+    assert env["invoke"]("preview", "--details").exit_code == 0
     expanded = sink.getvalue()
     assert expanded.count("Example movie") == 30
     assert "2020-01-01T" in expanded
@@ -728,3 +728,42 @@ def test_preview_keeps_every_match_in_narrow_tables(env, monkeypatch, width):
     report = json.loads(structured.stdout)
     assert sum(len(rule["matches"]) for rule in report["rules"]) == 30
     assert env["executed"] == []
+
+
+@pytest.mark.parametrize("command", ["run", "preview"])
+def test_details_help_and_legacy_alias(env, command):
+    help_result = env["invoke"](command, "--help")
+    assert "--details" in help_result.output
+    assert "--show-all" not in help_result.output
+    args = ["-y"] if command == "run" else []
+    assert env["invoke"](command, "--show-all", *args).exit_code == 0
+
+
+def test_rule_colors_are_distinct_in_overview_and_details(env, monkeypatch):
+    import re
+
+    sink = StringIO()
+    monkeypatch.setattr(
+        cli,
+        "Console",
+        lambda: Console(
+            file=sink, force_terminal=True, color_system="truecolor", no_color=False, width=160
+        ),
+    )
+    names = [f"color-rule-{index:02}" for index in range(20)]
+    env["write"](
+        [
+            {"name": name, "target": "radarr", "action": "delete", "when": {"monitored": True}}
+            for name in names
+        ]
+    )
+    result = env["invoke"]("preview", "--details")
+    assert result.exit_code == 0, result.output
+    colors = []
+    for name in names:
+        styles = re.findall(r"\x1b\[([0-9;]+)m" + name, sink.getvalue())
+        assert len(styles) >= 2  # Overview and matching titles share the rule color.
+        rgb_styles = [style.removeprefix("1;") for style in styles]
+        assert len(set(rgb_styles)) == 1
+        colors.append(rgb_styles[0])
+    assert len(set(colors)) == len(names)

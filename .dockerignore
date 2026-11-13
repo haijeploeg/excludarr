@@ -1,0 +1,10 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+.superpowers
+sandbox
+**/__pycache__
+**/*.pyc
+.env
+dev/.env.local

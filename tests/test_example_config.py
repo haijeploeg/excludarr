@@ -56,3 +56,21 @@ def test_list_proxy_example(monkeypatch):
     config, _ = load_config(Path(".examples/list-proxy-example.yml"))
     assert set(config.list_proxy.lists) == {"movies", "series"}
     assert len(config.list_proxy.sources) == 9
+
+
+def test_daemon_example(monkeypatch):
+    from pathlib import Path
+
+    from excludarr.config import load_config
+    from excludarr.jobs import configured_jobs
+
+    for key in ("RADARR_API_KEY", "SONARR_API_KEY", "LIST_PROXY_API_KEY", "TMDB_READ_TOKEN"):
+        monkeypatch.setenv(key, "example-only")
+    config, _ = load_config(Path(".examples/daemon-example.yml"))
+    assert config.scheduler.timezone == "Europe/Amsterdam"
+    assert config.rules[0].preview is True
+    assert {job.key for job in configured_jobs(config)} == {
+        ("list", "movies"),
+        ("list", "series"),
+        ("rule", "Streaming movies"),
+    }

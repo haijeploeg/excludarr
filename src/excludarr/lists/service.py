@@ -37,7 +37,9 @@ def fingerprint(config: Config, slug: str) -> str:
     value = {
         "revision": 1,
         "profile": config.profile,
-        "list": rule,
+        "list": {
+            name: getattr(rule, name) for name in type(rule).model_fields if name != "schedule"
+        },
         "sources": {name: proxy.sources[name] for name in rule.sources},
         "tmdb_token": proxy.tmdb_token,
         "api_key": proxy.api_key,

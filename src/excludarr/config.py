@@ -26,6 +26,7 @@ from excludarr.conditions import (
     required_integrations,
 )
 from excludarr.list_config import ListProxyConfig
+from excludarr.scheduling import Schedule, SchedulerConfig
 
 ParsedCondition = Annotated[Condition, PlainValidator(parse_condition)]
 
@@ -102,6 +103,7 @@ class Rule(BaseModel):
     grace_period: timedelta = timedelta(0)
     leaving_soon_collection: bool = False
     enabled: bool = True
+    schedule: Schedule = None
 
     @field_validator("grace_period", mode="before")
     @classmethod
@@ -141,6 +143,7 @@ class Config(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     profile: Profile = Profile()
+    scheduler: SchedulerConfig = SchedulerConfig()
     integrations: Integrations
     rules: list[Rule] = []
     database: str | None = None

@@ -81,3 +81,39 @@ class ListSnapshot(Base):
     successful_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     last_attempt_at: Mapped[datetime] = mapped_column(UTCDateTime)
     last_error: Mapped[str | None] = mapped_column(Text)
+
+
+class DaemonState(Base):
+    __tablename__ = "daemon_state"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instance: Mapped[str] = mapped_column(String)
+    timezone: Mapped[str] = mapped_column(String)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    heartbeat_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    stopped_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class ScheduledJob(Base):
+    __tablename__ = "scheduled_job"
+    kind: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    instance: Mapped[str] = mapped_column(String)
+    schedule: Mapped[str] = mapped_column(String)
+    state: Mapped[str] = mapped_column(String)
+    next_due: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    pending_due: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_dispatched_due: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class JobExecution(Base):
+    __tablename__ = "job_execution"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    instance: Mapped[str] = mapped_column(String)
+    kind: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    scheduled_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    outcome: Mapped[str | None] = mapped_column(String)
+    error: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[dict | None] = mapped_column(JSON)

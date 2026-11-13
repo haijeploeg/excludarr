@@ -37,6 +37,14 @@ class Clients:
     plex: PlexClient | None = None
     seerr: SeerrClient | None = None
 
+    def close(self) -> None:
+        from excludarr.clients.http import HttpClient
+
+        for client in vars(self).values():
+            http = getattr(client, "http", None)
+            if isinstance(http, HttpClient):
+                http.close()
+
     @classmethod
     def from_config(cls, config: Config) -> "Clients":
         i = config.integrations

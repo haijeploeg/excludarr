@@ -27,7 +27,7 @@ deletes, unmonitors, monitors, tags or import-excludes whatever matches your rul
 - 🎯 **Season and episode rules** for Sonarr, not just whole series.
 - 🔒 **Library actions require known data**: an unknown rule result never executes an action.
 - 📋 **[Filtered import lists](docs/list-proxy.md)**: serve feeds to Radarr/Sonarr; configure whether unknown filter results are included or excluded.
-- 🐳 **Runs anywhere**: as a CLI, or in Docker on a cron schedule.
+- 🐳 **Runs anywhere**: one-shot CLI, legacy cron, or a [single daemon](docs/daemon.md) with per-list/per-rule cron schedules.
 
 ## 🚀 Quick start
 
@@ -117,6 +117,17 @@ adding more sources.
 running and serves them under `/lists/NAME?apikey=YOUR_FEED_KEY`; it does not refresh
 them. Run both independently, with the same config and database. The guide's Docker
 example uses a server container and an hourly refresh container.
+
+## Daemon and scheduling
+
+Run `excludarr daemon` for one persistent process serving feeds and executing
+individual list/rule cron schedules. Existing preview and grace settings remain
+in force. Inspect local results with `excludarr schedule status`.
+
+See [the daemon setup and migration guide](docs/daemon.md),
+[the complete scheduled config](.examples/daemon-example.yml) and
+[the one-container Compose example](.examples/daemon-compose.yml).
+The separate `serve` and cron workflow remains available.
 
 ## 🍳 Recipes
 
@@ -250,8 +261,8 @@ leads to an action.
 
 ```text
 excludarr [--config PATH] [--debug] [--version] COMMAND
-  run [--progress] [--show-all] [--refresh] [--type movies|series] [--rule NAME] [--interactive] [-y] [--sort title|size|date]
-  preview [--progress] [--show-all] [--refresh] [--type movies|series] [--rule NAME] [--sort title|size|date]
+  run [--progress] [--details] [--refresh] [--type movies|series] [--rule NAME] [--interactive] [-y] [--sort title|size|date]
+  preview [--progress] [--details] [--refresh] [--type movies|series] [--rule NAME] [--sort title|size|date]
   queue [--sort title|size|date]
   rescue ITEM_KEY --rule NAME [--forever | --once]
   history [--limit N]
@@ -289,14 +300,14 @@ guarantee future savings because queued items are re-evaluated when due.
 
 Preview and run results show every match in a table that adapts to the terminal width.
 Each row shows the title, rule, size, match evidence and planned step or result.
-Add `--show-all` for extra context such as labels, file age, viewers and Seerr requests. Streaming
+Add `--details` for extra context such as labels, file age, viewers and Seerr requests. Streaming
 context is limited to providers in `profile.providers` for the configured locale. Viewer
 details require Plex and Tautulli. Seerr request details include status and requester when
 available. Queue and history entries retain match evidence from when they were queued or acted
 on. History reports the bytes freed by the action separately from the original item size.
 
 Use `-o json` or `-o yaml` on the commands above for one complete report on stdout.
-Structured reports include all available match context regardless of `--show-all`.
+Structured reports include all available match context regardless of `--details`.
 Confirmation and progress go to stderr. Pass `run -y` for unattended execution.
 
 Add `--progress` to `run` or `preview` to show the current phase, API waits, elapsed time
@@ -401,3 +412,15 @@ server yet. Try it on a few items, with a long `grace_period`, before relying on
 
 See [DEVELOPER.md](.github/DEVELOPER.md) for running tests, the demo recording and how releases
 work.
+
+## Development integration environment
+
+The repository includes a [disposable full-suite development stack](dev/README.md)
+with real Radarr, Sonarr, Plex, Tautulli and Seerr, generated test clips and repeatable
+fixtures. Preview, destructive actions and daemon checks can run there without using
+an existing library. Plex-related checks need a separate test account and one-time setup.
+
+Use `make` to list development shortcuts, `make dev ARGS="preview"` to run the CLI
+inside the stack, and `make dev-shell` for an interactive shell. See the stack guide
+for one-time setup and manual scenarios. Edit `dev/excludarr.yml` directly; all rules
+start in preview, and CLI/shell/daemon use the same file without a rebuild.

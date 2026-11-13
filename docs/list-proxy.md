@@ -4,6 +4,10 @@ Excludarr reads source lists, filters their titles, and serves the remaining tit
 as import lists for Radarr and Sonarr. It does not add titles to either library
 itself: Radarr/Sonarr fetch the feeds on their own schedule.
 
+For built-in per-list scheduling and a one-container deployment, use the
+[daemon guide](daemon.md). The manual `refresh` + `serve` workflow below remains
+supported; do not run both schedulers against the same deployment.
+
 The workflow is **configure → preview → refresh → serve → connect Radarr/Sonarr**.
 `refresh` and `serve` are separate commands: one updates stored data and exits;
 the other stays running and serves that data.
