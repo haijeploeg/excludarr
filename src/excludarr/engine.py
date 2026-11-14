@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from excludarr.actions import ActionResult, execute
-from excludarr.conditions import All, Any_, Evidence, describe, evaluate, leaves
+from excludarr.conditions import LEAVES, All, Any_, Evidence, describe, evaluate, leaves
 from excludarr.config import Rule
 from excludarr.diagnostics import safe_error
 from excludarr.facts import Context
@@ -101,6 +101,8 @@ def evaluate_rule(
             or (
                 rule.action in REMOVING and item.kind in ("season", "episode") and not item.has_file
             )
+            # No files and already unmonitored: deleting the files changes nothing.
+            or (rule.action == "delete_files" and not item.has_file and not item.monitored)
         ):
             continue
         causes = set() if diagnostics else None
@@ -225,6 +227,17 @@ def run(
         items_for(r.target, r.level)
     if should_stop():
         return []
+    # Scan Plex now: `unless` leaves may never evaluate, and the scan stores the rating keys.
+    if ctx.clients.plex and ctx.clients.tautulli:
+        uses_watch = any(
+            "tautulli" in LEAVES[leaf.name].integrations
+            for r in rules
+            for c in [r.when, *r.unless]
+            for leaf in leaves(c)
+        )
+        if uses_watch:
+            progress("Loading Plex library", 0, None)
+            ctx.plex_library()
     names = {r.name for r in ctx.config.rules}
     target_prefix = f"{target_filter}:" if target_filter else ""
     preflight_warnings = []

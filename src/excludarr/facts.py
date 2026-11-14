@@ -331,21 +331,50 @@ class Context:
                 return None
         return self._memo[name]
 
-    def plex_item(self, item: MediaItem) -> PlexItem | None:
-        if not self.clients.plex:
+    def _scan_plex(self, plex: PlexClient) -> dict[tuple[str, str], PlexItem]:
+        result = plex.items_by_guid()
+        try:
+            self.repo.rating_keys_record({k: v.rating_key for k, v in result.items()})
+        except Exception as e:  # noqa: BLE001 - live Plex data stays correct without storage
+            log.warning("Could not store Plex rating keys: %s", e)
+        return result
+
+    def plex_library(self) -> dict[tuple[str, str], PlexItem] | None:
+        if not (plex := self.clients.plex):
             return None
-        by_guid = self._once("plex", self.clients.plex.items_by_guid)
-        if by_guid is None:
-            return None
+        return self._once("plex", lambda: self._scan_plex(plex))
+
+    @staticmethod
+    def _external_ids(item: MediaItem) -> tuple[str, list[str]]:
         kind = "movie" if item.kind == "movie" else "show"
-        for prefix, ident in (
+        ids = (
             ("tmdb", item.tmdb_id),
             ("imdb", item.imdb_id),
             ("tvdb", item.tvdb_id),
-        ):
-            if ident and (kind, f"{prefix}://{ident}") in by_guid:
-                return by_guid[(kind, f"{prefix}://{ident}")]
+        )
+        return kind, [f"{prefix}://{ident}" for prefix, ident in ids if ident]
+
+    def plex_item(self, item: MediaItem) -> PlexItem | None:
+        by_guid = self.plex_library()
+        if by_guid is None:
+            return None
+        kind, ids = self._external_ids(item)
+        for external_id in ids:
+            if (kind, external_id) in by_guid:
+                return by_guid[(kind, external_id)]
         return None
+
+    def rating_keys(self, item: MediaItem) -> set[str]:
+        """The live Plex key plus every key stored for the item's external ids."""
+        kind, ids = self._external_ids(item)
+        memo_key = ("rating_keys", kind, *ids)
+        if memo_key not in self._memo:
+            live = self.plex_item(item)  # scan first: it records keys and drops rematched rows
+            keys = self.repo.rating_keys_for(kind, ids)
+            if live:
+                keys.add(live.rating_key)
+            self._memo[memo_key] = keys
+        return self._memo[memo_key]
 
     def movie_viewer_labels(self, item: MediaItem) -> list[str] | None:
         if not (self.clients.plex and self.clients.tautulli):
@@ -353,7 +382,7 @@ class Context:
         watched = self.watch(item)
         if watched is not None:
             return watched.watched_users
-        if "plex" not in self._failed and self.plex_item(item) is None:
+        if "plex" not in self._failed and not self.rating_keys(item):
             return ["Not in Plex"]
         return None
 
@@ -368,22 +397,22 @@ class Context:
         }
         if item.kind != "movie" and not units:
             return None  # nothing aired: nothing to watch, so watch facts are unknown
-        plex_item = self.plex_item(item)
+        keys = self.rating_keys(item)
         history = self._once("tautulli", self.clients.tautulli.history)
-        if plex_item is None:
-            reason = "Plex lookup failed" if "plex" in self._failed else "no matching Plex item"
+        if not keys:
+            reason = "Plex lookup failed" if "plex" in self._failed else "no known rating key"
             log.debug("Watch history for %r: %s", item.title, reason)
             return None
         if history is None:
             log.debug("Watch history for %r: Tautulli history unavailable", item.title)
             return None
         if item.kind == "movie":
-            rows = [r for r in history if r.rating_key == plex_item.rating_key]
+            rows = [r for r in history if r.rating_key in keys]
         else:
             rows = [
                 r
                 for r in history
-                if r.grandparent_rating_key == plex_item.rating_key
+                if r.grandparent_rating_key in keys
                 and (item.season is None or r.season == item.season)
                 and (item.episode is None or r.episode == item.episode)
                 and (item.kind != "series" or r.season != 0)  # ponytail: specials ignored

@@ -441,6 +441,29 @@ def test_delete_skips_empty_units(env, action):
     assert len(reports[2].matches) == 2
 
 
+ANY_STATE = {"any": [{"monitored": True}, {"monitored": False}]}
+
+
+def test_delete_files_skips_unmonitored_items_without_files(env):
+    with_files, wanted, done = movie(1), movie(2), movie(3, monitored=False)
+    with_files.has_file = True
+    full, empty = series(5), series(6)
+    full.has_file, empty.monitored = True, False
+    rules = [
+        rule("movies", action="delete_files", when=ANY_STATE),
+        rule("series", target="sonarr", level="series", action="delete_files",
+             when=ANY_STATE),
+        rule("delete", action="delete", when=ANY_STATE),
+    ]  # fmt: skip
+    ctx = env["make"](rules, movies=[with_files, wanted, done], series_=[full, empty])
+    reports = engine.run(ctx, dry_run=True)
+    # A monitored item without files still matches: the action unmonitors it.
+    assert [m.item.key for m in reports[0].matches] == ["radarr:movie:1", "radarr:movie:2"]
+    assert [m.item.key for m in reports[1].matches] == ["sonarr:series:5"]
+    # `delete` still removes an entry without files.
+    assert len(reports[2].matches) == 3
+
+
 def test_preflight_unknown_provider_in_second_rule_acts_on_nothing(env, monkeypatch):
     from excludarr.clients.justwatch import Provider
     from excludarr.config import ConfigError
@@ -527,3 +550,35 @@ def test_rule_lifecycle_retains_completed_before_exception(env):
         )
     assert starts == ["A", "B"]
     assert completed == ["A"]
+
+
+class ScanPlex:
+    def __init__(self):
+        self.calls = 0
+
+    def items_by_guid(self):
+        self.calls += 1
+        return {("movie", "tmdb://1"): PlexItem("k1", "1", "movie")}
+
+
+def test_run_scans_plex_when_watch_rule_never_evaluates_watch(env, minimal_cfg):
+    ctx = env["make"]([rule()], movies=[movie(1)])
+    watch_rule = rule(when={"year": {"min": 2090}}, unless=[{"fully_watched": True}])
+    integrations = {
+        **ctx.config.integrations.model_dump(exclude_none=True),
+        "tautulli": {"url": "http://tautulli:8181", "api_key": "k"},
+    }
+    ctx.config = Config.model_validate(
+        {**minimal_cfg, "integrations": integrations, "rules": [watch_rule]}
+    )
+    ctx.clients.plex, ctx.clients.tautulli = ScanPlex(), object()
+    engine.run(ctx, dry_run=True)
+    assert ctx.clients.plex.calls == 1
+    assert ctx.repo.rating_keys_for("movie", ["tmdb://1"]) == {"k1"}
+
+
+def test_run_skips_plex_scan_without_watch_leaf(env):
+    ctx = env["make"]([rule()], movies=[movie(1)])
+    ctx.clients.plex, ctx.clients.tautulli = ScanPlex(), object()
+    engine.run(ctx, dry_run=True)
+    assert ctx.clients.plex.calls == 0
