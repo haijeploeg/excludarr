@@ -58,11 +58,15 @@ class Clients:
         )
 
 
+def _in_scope(e, item: MediaItem) -> bool:
+    return e.season >= 1 if item.kind == "series" else e.season == item.season
+
+
 @dataclass
 class WatchStats:
     last_watched: datetime | None
     play_count: int
-    fully_watched: bool
+    fully_watched: bool | None
     last_by_user: dict[str, datetime]
     watched_users: list[str] = field(default_factory=list)
 
@@ -361,11 +365,7 @@ class Context:
         if not (self.clients.tautulli and self.clients.plex):
             log.debug("Watch history for %r: Plex or Tautulli not configured", item.title)
             return None
-        units = {
-            (e.season, e.number)
-            for e in item.episodes
-            if e.aired and (e.season >= 1 if item.kind == "series" else e.season == item.season)
-        }
+        units = {(e.season, e.number) for e in item.episodes if e.aired and _in_scope(e, item)}
         if item.kind != "movie" and not units:
             return None  # nothing aired: nothing to watch, so watch facts are unknown
         plex_item = self.plex_item(item)
@@ -394,6 +394,13 @@ class Context:
             if item.kind == "movie"
             else units <= {(r.season, r.episode) for r in watched}
         )
+        # a season-level delete unmonitors unaired episodes too, so wait for the finale
+        if (
+            full
+            and item.kind in ("season", "series")
+            and any(not e.aired and _in_scope(e, item) for e in item.episodes)
+        ):
+            full = None
         last_by_user: dict[str, datetime] = {}
         for r in watched:
             for name in filter(None, (r.user.lower(), r.friendly_name.lower())):
