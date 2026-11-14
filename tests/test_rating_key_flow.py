@@ -136,5 +136,5 @@ def test_monitor_again_after_plex_removed_the_item(flow, plays, expected):
 
 
 def test_monitor_again_never_fires_for_an_item_plex_never_had(flow):
-    # Known gap (handled separately): without a stored key, `fully_watched` stays unknown.
+    # Intended: Plex never had the item, so `fully_watched` stays unknown and it stays away.
     assert flow(plex_library={}, streaming=False, plays=[]) == []
