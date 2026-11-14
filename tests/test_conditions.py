@@ -10,6 +10,7 @@ from excludarr.conditions import (
     Any_,
     Leaf,
     Not,
+    UnknownReason,
     describe,
     evaluate,
     parse_condition,
@@ -234,6 +235,15 @@ def test_watch_leaves():
     assert evaluate(parse_condition({"watched_within": "30d"}), movie(), never) is False
     for raw, _ in cases:
         assert evaluate(parse_condition(raw), movie(), FakeContext()) is None, raw
+
+
+def test_fully_watched_unknown_while_season_airing():
+    ctx = FakeContext(watch=watch(plays=2, full=None))
+    for value in (True, False):
+        reasons = set()
+        cond = parse_condition({"fully_watched": value})
+        assert evaluate(cond, movie(), ctx, unknown_reasons=reasons) is None
+        assert reasons == {UnknownReason.STILL_AIRING}
 
 
 def test_seerr_leaves():

@@ -89,6 +89,7 @@ class UnknownReason(StrEnum):
     NOT_REQUESTED = "Not requested"
     SEERR_UNAVAILABLE = "Seerr request data unavailable"
     WATCH_UNAVAILABLE = "Watch history unavailable"
+    STILL_AIRING = "Unaired episodes remain"
     OTHER = "Other unavailable data"
 
 
@@ -278,6 +279,15 @@ def _watch(fn: Callable, observed: Callable):
         return None if w is None else Observation(fn(p, w, ctx), observed(p, w, ctx))
 
     return ev
+
+
+def _fully_watched(p, item: MediaItem, ctx: Context) -> Observation | UnknownReason | None:
+    w = ctx.watch(item)
+    if w is None:
+        return None
+    if w.fully_watched is None:
+        return UnknownReason.STILL_AIRING
+    return Observation(w.fully_watched == p, {"fully_watched": w.fully_watched})
 
 
 def _watch_age(p, w, ctx):
@@ -471,9 +481,7 @@ LEAVES: dict[str, LeafSpec] = {
     ),
     "fully_watched": LeafSpec(
         _bool,
-        _watch(
-            lambda p, w, c: w.fully_watched == p, lambda p, w, c: {"fully_watched": w.fully_watched}
-        ),
+        _fully_watched,
         lambda v: "fully watched" if v else "not fully watched",
         TAUTULLI,
     ),

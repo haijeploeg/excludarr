@@ -91,6 +91,42 @@ def test_watch_fully_watched_requires_all_aired_episodes(tmp_path, minimal_cfg):
     assert w.last_watched == NOW - timedelta(days=3)  # partial rows count
 
 
+def unaired_ep(season_no):
+    return EpisodeRef(99, season_no, 9, False, None, 0, True)
+
+
+def test_watch_fully_watched_unknown_while_unaired_episodes_exist(tmp_path, minimal_cfg):
+    rows = [row("e1", 5, 1, 1, gp="show1"), row("e2", 3, 1, 2, gp="show1")]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    w = ctx.watch(season(episodes=(*eps(True, True), unaired_ep(1))))
+    assert w.fully_watched is None and w.play_count == 2
+
+
+def test_watch_unwatched_aired_episode_is_false_even_with_unaired(tmp_path, minimal_cfg):
+    rows = [row("e1", 5, 1, 1, gp="show1")]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    w = ctx.watch(season(episodes=(*eps(True, True), unaired_ep(1))))
+    assert w.fully_watched is False
+
+
+def test_watch_series_unaired_in_later_season_is_unknown(tmp_path, minimal_cfg):
+    rows = [row("e1", 5, 1, 1, gp="show1"), row("e2", 3, 1, 2, gp="show1")]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    series = replace(
+        season(), kind="series", season=None, episodes=(*eps(True, True), unaired_ep(2))
+    )
+    assert ctx.watch(series).fully_watched is None
+
+
+def test_watch_series_ignores_unaired_special(tmp_path, minimal_cfg):
+    rows = [row("e1", 5, 1, 1, gp="show1"), row("e2", 3, 1, 2, gp="show1")]
+    ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows))
+    series = replace(
+        season(), kind="series", season=None, episodes=(*eps(True, True), unaired_ep(0))
+    )
+    assert ctx.watch(series).fully_watched is True
+
+
 def test_watch_movie(tmp_path, minimal_cfg):
     ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([row("m1", 4), row("x", 1)]))
     m = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=11)

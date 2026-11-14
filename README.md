@@ -381,6 +381,9 @@ things that should stay gone.
 | `requested_more_than` / `requested_less_than` | `30d` | Seerr |
 | `requester_watched_more_than` | `30d` | Seerr + Tautulli |
 
+For seasons and series, `fully_watched` stays unknown while unaired episodes exist.
+A rule with this condition then waits for the finale.
+
 Combine them with `all: [...]`, `any: [...]` and `not: {...}`.
 
 </details>
