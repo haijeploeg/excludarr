@@ -57,12 +57,13 @@ def ago(days):
     return NOW - timedelta(days=days)
 
 
-def watch(last_days=None, by=None, plays=0, full=False):
+def watch(last_days=None, by=None, plays=0, full=False, full_by=()):
     return WatchStats(
         last_watched=ago(last_days) if last_days is not None else None,
         play_count=plays,
         fully_watched=full,
         last_by_user={u: ago(d) for u, d in (by or {}).items()},
+        fully_watched_by=frozenset(full_by),
     )
 
 
@@ -217,15 +218,17 @@ def test_attribute_leaves():
 
 
 def test_watch_leaves():
-    ctx = FakeContext(watch=watch(5, {"bob": 5}, plays=3, full=True))
+    ctx = FakeContext(watch=watch(5, {"bob": 5, "alice": 9}, plays=3, full=True, full_by={"bob"}))
     cases = [
         ({"not_watched_for": "30d"}, False),
         ({"watched_within": "30d"}, True),
         ({"watched_by": "Bob"}, True),
-        ({"watched_by": "alice"}, False),
+        ({"watched_by": "carol"}, False),
         ({"play_count": {"min": 3}}, True),
         ({"play_count": {"max": 2}}, False),
         ({"fully_watched": True}, True),
+        ({"fully_watched_by": "BOB"}, True),
+        ({"fully_watched_by": "alice"}, False),
     ]
     for raw, expected in cases:
         assert evaluate(parse_condition(raw), movie(), ctx) is expected, raw

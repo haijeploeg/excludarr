@@ -105,7 +105,8 @@ def evidence_text(entries: list[dict] | None, *, compact: bool = False) -> str:
         elif (
             compact
             and entry["result"]
-            and entry["condition"] in ("monitored", "has_file", "status", "fully_watched")
+            and entry["condition"]
+            in ("monitored", "has_file", "status", "fully_watched", "fully_watched_by")
         ):
             pass
         elif values:

@@ -377,6 +377,7 @@ things that should stay gone.
 | `watched_by` | `alice` | Tautulli |
 | `play_count` | `{ max: 0 }` | Tautulli |
 | `fully_watched` | `true` | Tautulli |
+| `fully_watched_by` | `alice` | Tautulli |
 | `requested_by` | `bob` | Seerr |
 | `requested_more_than` / `requested_less_than` | `30d` | Seerr |
 | `requester_watched_more_than` | `30d` | Seerr + Tautulli |
