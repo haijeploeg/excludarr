@@ -91,11 +91,22 @@ def test_watch_fully_watched_requires_all_aired_episodes(tmp_path, minimal_cfg):
     assert w.last_watched == NOW - timedelta(days=3)  # partial rows count
 
 
+def test_watch_fully_watched_by_needs_one_user_to_cover_all_aired_episodes(tmp_path, minimal_cfg):
+    alice = {"user": "Alice", "friendly_name": "Ally"}
+    rows = [row("e1", 5, 1, 1, gp="show1"), replace(row("e2", 3, 1, 2, gp="show1"), **alice)]
+    w = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows)).watch(season())
+    assert w.fully_watched and w.fully_watched_by == frozenset()  # together, not alone
+    rows.append(replace(row("e1", 1, 1, 1, gp="show1"), **alice))
+    w = make_ctx(tmp_path, minimal_cfg, **plex_tautulli(rows)).watch(season())
+    assert w.fully_watched_by == {"alice", "ally"}
+
+
 def test_watch_movie(tmp_path, minimal_cfg):
     ctx = make_ctx(tmp_path, minimal_cfg, **plex_tautulli([row("m1", 4), row("x", 1)]))
     m = MediaItem(key="m", kind="movie", title="M", base_title="M", arr_id=1, tmdb_id=11)
     w = ctx.watch(m)
     assert w.fully_watched and w.play_count == 1
+    assert w.fully_watched_by == {"bob", "bobby"}
 
 
 def test_movie_viewers_use_display_names_without_aliases_or_partial_plays(tmp_path, minimal_cfg):

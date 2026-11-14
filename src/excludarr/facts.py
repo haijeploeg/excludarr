@@ -65,6 +65,7 @@ class WatchStats:
     fully_watched: bool
     last_by_user: dict[str, datetime]
     watched_users: list[str] = field(default_factory=list)
+    fully_watched_by: frozenset[str] = frozenset()  # names whose own plays cover every unit
 
 
 class Context:
@@ -395,10 +396,12 @@ class Context:
             else units <= {(r.season, r.episode) for r in watched}
         )
         last_by_user: dict[str, datetime] = {}
+        covered: dict[str, set[tuple[int | None, int | None]]] = {}
         for r in watched:
             for name in filter(None, (r.user.lower(), r.friendly_name.lower())):
                 if name not in last_by_user or r.at > last_by_user[name]:
                     last_by_user[name] = r.at
+                covered.setdefault(name, set()).add((r.season, r.episode))
         users = {}
         for r in sorted(watched, key=lambda row: row.at):
             name = r.friendly_name or r.user or "Unknown viewer"
@@ -409,6 +412,9 @@ class Context:
             fully_watched=full,
             last_by_user=last_by_user,
             watched_users=sorted(set(users.values()), key=str.casefold),
+            fully_watched_by=frozenset(
+                name for name, seen in covered.items() if item.kind == "movie" or units <= seen
+            ),
         )
 
     def requester_labels(self, item: MediaItem) -> list[str] | None:

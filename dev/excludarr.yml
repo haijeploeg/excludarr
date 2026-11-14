@@ -165,6 +165,7 @@ rules:
       - play_count:
           min: 1
       - fully_watched: true
+      - fully_watched_by: ${DEV_PLEX_USER}
       - requested_by: ${DEV_PLEX_USER}
       - requested_less_than: 7d
       - not:

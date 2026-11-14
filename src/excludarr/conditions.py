@@ -477,6 +477,15 @@ LEAVES: dict[str, LeafSpec] = {
         lambda v: "fully watched" if v else "not fully watched",
         TAUTULLI,
     ),
+    "fully_watched_by": LeafSpec(
+        _user,
+        _watch(
+            lambda p, w, c: p in w.fully_watched_by,
+            lambda p, w, c: {"user": p, "fully_watched_by": p in w.fully_watched_by},
+        ),
+        lambda v: f"fully watched by {v}",
+        TAUTULLI,
+    ),
     "requested_by": LeafSpec(
         _user,
         _requests(
