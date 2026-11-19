@@ -17,7 +17,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "croniter>=6.0,<7",
-    "filelock>=3.16,<4",
+    "filelock>=3.16,<5",
     "tzdata>=2024.1",
 ]
 
